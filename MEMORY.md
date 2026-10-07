@@ -390,6 +390,13 @@ intervención del usuario. La `WebView` es `!Send` y se ejecuta en el hilo
 principal (bucle GTK) antes del runtime async. No es una feature por defecto
 para no imponer WebKitGTK a todas las builds.
 
+IMPORTANTE (WebView en Linux, 2026-10-07): WebKitGTK/Wayland puede fallar con
+`Gdk-Message: Error 71 dispatching to Wayland display` y arrastrar a WebKit
+(`internallyFailedLoadTimerFired`). Por eso se fuerza `GDK_BACKEND=x11` por
+defecto (override con `O2CLOUD_WEBVIEW_BACKEND`/`GDK_BACKEND`). Además, si la
+página no carga, se detecta y se cae al login con navegador del sistema; en
+contenedores puede hacer falta `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:

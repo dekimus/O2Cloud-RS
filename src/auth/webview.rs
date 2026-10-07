@@ -2,16 +2,15 @@
 //!
 //! Abre el portal en una `WebView` `WebKitGTK` dentro de una ventana GTK, deja
 //! que el usuario complete el login (teléfono + SMS) y captura la sesión SAPI
-//! leyendo las cookies del propio motor (`JSESSIONID` + `validationKey`). Al
-//! capturarlas, cierra la ventana y devuelve la cabecera `Cookie` completa.
+//! leyendo las cookies del propio motor (`JSESSIONID` + `validationKey`).
 //!
 //! Se usa directamente el bucle de GTK (sin `winit`/`tao`) porque es la ruta
-//! nativa de `wry` en Linux y evita dependencias adicionales. La `WebView` es
-//! `!Send`: todo ocurre en el hilo que llama a [`capture_cookie_header`], que
-//! debe ser el hilo principal (GTK lo exige).
+//! nativa de `wry` en Linux. La `WebView` es `!Send`: todo ocurre en el hilo
+//! que llama a [`capture_cookie_header`], que debe ser el hilo principal.
 //!
-//! Alternativa sin esta feature: login asistido por navegador del sistema
-//! (ver [`crate::auth::browser`]).
+//! Si la `WebView` no puede usarse (sin display, backend gráfico roto o la
+//! página no carga), se devuelve [`CaptureOutcome::Unavailable`] para que la
+//! CLI caiga al login con el navegador del sistema.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,44 +20,47 @@ use gtk::prelude::*;
 use wry::WebViewBuilderExtUnix;
 
 use crate::auth::browser::LOGIN_URL;
-use crate::error::{Error, Result};
 
 /// Origen donde viven las cookies de sesión SAPI.
 const ORIGIN: &str = "https://cloud.o2online.es/";
 /// Intervalo entre comprobaciones de cookies.
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
-/// Tiempo máximo de espera antes de cancelar.
+/// Tiempo máximo para que cargue la primera página antes de considerarlo fallo.
+const LOAD_TIMEOUT: Duration = Duration::from_secs(30);
+/// Tiempo máximo de espera del login antes de cancelar.
 const OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// Tiempo máximo de espera, configurable vía `O2CLOUD_WEBVIEW_TIMEOUT_SECS`.
-fn overall_timeout() -> Duration {
-    std::env::var("O2CLOUD_WEBVIEW_TIMEOUT_SECS")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .map_or(OVERALL_TIMEOUT, Duration::from_secs)
-}
+/// Mensaje de ayuda cuando la `WebView` no funciona.
+pub const TROUBLESHOOTING: &str = "\
+Sugerencias:
+  - Fuerza X11:            export GDK_BACKEND=x11
+  - Alterna el backend:    export O2CLOUD_WEBVIEW_BACKEND=wayland
+  - Desactiva el sandbox de WebKitGTK (menos seguro):
+        export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+  - O usa la importación manual:
+        o2cloud login --import-cookie '<Cookie: ...>'";
 
-/// URL que carga la `WebView` (override de test: `O2CLOUD_WEBVIEW_URL`).
-fn login_url() -> String {
-    env_or("O2CLOUD_WEBVIEW_URL", LOGIN_URL)
-}
-
-/// Origen del que se leen las cookies (override: `O2CLOUD_WEBVIEW_ORIGIN`).
-fn origin() -> String {
-    env_or("O2CLOUD_WEBVIEW_ORIGIN", ORIGIN)
-}
-
-fn env_or(key: &str, default: &str) -> String {
-    std::env::var(key).unwrap_or_else(|_| default.to_string())
+/// Resultado de la captura con la `WebView`.
+#[derive(Debug)]
+pub enum CaptureOutcome {
+    /// Sesión capturada (cabecera `Cookie` completa).
+    Captured(String),
+    /// El usuario cerró la ventana o no completó el login a tiempo.
+    Cancelled,
+    /// La `WebView` no pudo usarse; la CLI debería caer al navegador del sistema.
+    Unavailable(String),
 }
 
 /// Abre la `WebView`, espera el login y devuelve la cabecera `Cookie`.
 ///
-/// Bloquea hasta que se capturan las cookies, se cierra la ventana o se agota
-/// el tiempo. Requiere una sesión gráfica (X11/Wayland); si no hay display,
-/// GTK falla y se devuelve un error claro.
-pub fn capture_cookie_header() -> Result<String> {
-    gtk::init().map_err(|e| Error::LocalIo(format!("cannot initialize GTK (no display?): {e}")))?;
+/// Bloquea hasta capturar las cookies, cerrar la ventana o agotar el tiempo.
+#[must_use]
+pub fn capture_cookie_header() -> CaptureOutcome {
+    prefer_x11_backend();
+
+    if let Err(e) = gtk::init() {
+        return CaptureOutcome::Unavailable(format!("cannot initialize GTK (no display?): {e}"));
+    }
 
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
     window.set_title("O2 Cloud — Iniciar sesión");
@@ -67,15 +69,24 @@ pub fn capture_cookie_header() -> Result<String> {
     window.add(&fixed);
     window.show_all();
 
-    let webview = Rc::new(
-        wry::WebViewBuilder::new()
-            .with_url(login_url())
-            .build_gtk(&fixed)
-            .map_err(|e| Error::LocalIo(format!("cannot create webview: {e}")))?,
-    );
-
     let result: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     let finished = Rc::new(RefCell::new(false));
+    let loaded = Rc::new(RefCell::new(false));
+
+    let loaded_for_handler = Rc::clone(&loaded);
+    let builder = wry::WebViewBuilder::new()
+        .with_url(login_url())
+        .with_on_page_load_handler(move |event, _url| {
+            if matches!(event, wry::PageLoadEvent::Finished) {
+                *loaded_for_handler.borrow_mut() = true;
+            }
+        });
+
+    let webview = match builder.build_gtk(&fixed) {
+        Ok(webview) => Rc::new(webview),
+        Err(e) => return CaptureOutcome::Unavailable(format!("cannot create webview: {e}")),
+    };
+
     let origin = origin();
 
     // Sondea las cookies hasta capturar la sesión completa.
@@ -99,16 +110,23 @@ pub fn capture_cookie_header() -> Result<String> {
         });
     }
 
-    // Timeout global.
+    // Watchdog de carga: si la primera página no termina de cargar, aborta.
     {
+        let loaded = Rc::clone(&loaded);
         let finished = Rc::clone(&finished);
-        gtk::glib::timeout_add_local(overall_timeout(), move || {
-            if !*finished.borrow() {
+        gtk::glib::timeout_add_local(load_timeout(), move || {
+            if !*loaded.borrow() && !*finished.borrow() {
                 gtk::main_quit();
             }
             gtk::glib::ControlFlow::Break
         });
     }
+
+    // Timeout global.
+    gtk::glib::timeout_add_local(overall_timeout(), || {
+        gtk::main_quit();
+        gtk::glib::ControlFlow::Break
+    });
 
     // Cerrar la ventana cancela el login.
     window.connect_delete_event(|_, _| {
@@ -119,7 +137,60 @@ pub fn capture_cookie_header() -> Result<String> {
     gtk::main();
 
     let captured = result.borrow().clone();
-    captured.ok_or(Error::Cancelled)
+    if let Some(header) = captured {
+        CaptureOutcome::Captured(header)
+    } else if *loaded.borrow() {
+        // La página cargó pero no se completó el login (cierre o timeout).
+        CaptureOutcome::Cancelled
+    } else {
+        CaptureOutcome::Unavailable(
+            "the login page did not load (WebKit network process or GPU/backend issue)".to_string(),
+        )
+    }
+}
+
+/// Fuerza X11 por defecto para la `WebView` si no se ha elegido backend.
+///
+/// `WebKitGTK` es más fiable bajo X11/XWayland; se puede cambiar con
+/// `O2CLOUD_WEBVIEW_BACKEND` o `GDK_BACKEND`.
+fn prefer_x11_backend() {
+    if std::env::var_os("GDK_BACKEND").is_some() {
+        return;
+    }
+    let backend = std::env::var("O2CLOUD_WEBVIEW_BACKEND").unwrap_or_else(|_| "x11".to_string());
+    if !backend.is_empty() {
+        std::env::set_var("GDK_BACKEND", backend);
+    }
+}
+
+/// Tiempo máximo de espera, configurable vía `O2CLOUD_WEBVIEW_TIMEOUT_SECS`.
+fn overall_timeout() -> Duration {
+    std::env::var("O2CLOUD_WEBVIEW_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map_or(OVERALL_TIMEOUT, Duration::from_secs)
+}
+
+/// Tiempo máximo de carga inicial, vía `O2CLOUD_WEBVIEW_LOAD_TIMEOUT_SECS`.
+fn load_timeout() -> Duration {
+    std::env::var("O2CLOUD_WEBVIEW_LOAD_TIMEOUT_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .map_or(LOAD_TIMEOUT, Duration::from_secs)
+}
+
+/// URL que carga la `WebView` (override de test: `O2CLOUD_WEBVIEW_URL`).
+fn login_url() -> String {
+    env_or("O2CLOUD_WEBVIEW_URL", LOGIN_URL)
+}
+
+/// Origen del que se leen las cookies (override: `O2CLOUD_WEBVIEW_ORIGIN`).
+fn origin() -> String {
+    env_or("O2CLOUD_WEBVIEW_ORIGIN", ORIGIN)
+}
+
+fn env_or(key: &str, default: &str) -> String {
+    std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
 /// Construye la cabecera `Cookie` a partir de pares `(nombre, valor)`.

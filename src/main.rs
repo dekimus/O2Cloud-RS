@@ -59,24 +59,40 @@ fn is_bare_login(cli: &Cli) -> bool {
 /// normal (navegador del sistema) se encargue de él.
 #[cfg(all(feature = "webview", target_os = "linux"))]
 fn maybe_webview_login(cli: &Cli, output: Output) -> Option<i32> {
+    use o2cloud::auth::webview::{capture_cookie_header, CaptureOutcome, TROUBLESHOOTING};
+
     if !is_bare_login(cli) {
         return None;
     }
     let config = AppConfig::new(cli.profile.clone());
-    let code = match o2cloud::auth::webview::capture_cookie_header() {
-        Ok(cookie) => match store_and_report(&config, output, &cookie) {
-            Ok(()) => 0,
-            Err(err) => {
-                output.error(&err);
-                err.exit_code()
-            }
-        },
+
+    match capture_cookie_header() {
+        CaptureOutcome::Captured(cookie) => {
+            Some(report(store_and_report(&config, output, &cookie), output))
+        }
+        CaptureOutcome::Cancelled => {
+            eprintln!("Login cancelado.");
+            Some(11)
+        }
+        CaptureOutcome::Unavailable(reason) => {
+            eprintln!("No se pudo usar la WebView embebida: {reason}");
+            eprintln!("{TROUBLESHOOTING}");
+            eprintln!("Se usará el login con el navegador del sistema.");
+            Some(report(browser_login(&config, output), output))
+        }
+    }
+}
+
+/// Convierte el resultado de una operación en un código de salida.
+#[cfg(all(feature = "webview", target_os = "linux"))]
+fn report(result: Result<()>, output: Output) -> i32 {
+    match result {
+        Ok(()) => 0,
         Err(err) => {
             output.error(&err);
             err.exit_code()
         }
-    };
-    Some(code)
+    }
 }
 
 /// Sin la feature `webview`, el login normal usa el navegador del sistema.

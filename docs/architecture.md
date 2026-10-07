@@ -176,6 +176,11 @@ el bucle de GTK directamente (la `WebView` es `!Send`), y se ejecuta **antes**
 de crear el runtime async (necesita el hilo principal). Requiere WebKitGTK 4.1 +
 GTK3; por eso es una feature opt-in y no rompe builds sin esas librerías.
 
+Se prefiere **X11/XWayland** (variable `GDK_BACKEND`, configurable con
+`O2CLOUD_WEBVIEW_BACKEND`). Si la `WebView` no puede inicializarse o la página
+no carga en un tiempo, se devuelve `CaptureOutcome::Unavailable` y la CLI cae
+al login con el navegador del sistema (con sugerencias de diagnóstico).
+
 Sin la feature (por defecto), el login usa el navegador del sistema y captura
 manual, que no necesita dependencias gráficas.
 

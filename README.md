@@ -94,6 +94,18 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev
 Sin la feature, `login` usa el navegador del sistema y la captura manual, que no
 necesita dependencias gráficas.
 
+La WebView se apoya en **X11/XWayland por defecto** (WebKitGTK es más fiable
+así). Si falla (por ejemplo, `Error dispatching to Wayland display` o el
+sandbox de WebKitGTK), lo detecta y **cae automáticamente** al login con el
+navegador del sistema. Variables útiles:
+
+```bash
+GDK_BACKEND=x11                                   # forzar X11 (por defecto)
+GDK_BACKEND=wayland                               # forzar Wayland
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 # entornos tipo contenedor (menos seguro)
+O2CLOUD_WEBVIEW_BACKEND=wayland                   # alternativa a GDK_BACKEND
+```
+
 ## Uso
 
 ```bash
