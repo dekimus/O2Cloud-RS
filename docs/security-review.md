@@ -7,7 +7,7 @@ automatizadas (`unsafe`, shell, TLS, `unwrap`, dependencias).
 
 ## Resumen
 
-Se encontraron **7 problemas** (1 alto, 3 medios, 3 bajos) y se corrigieron todos
+Se encontraron **8 problemas** (1 alto, 3 medios, 4 bajos) y se corrigieron todos
 en esta revisión. El resto de comprobaciones pasaron correctamente. No hay código
 `unsafe`, no se usa shell ni `eval`, y TLS se verifica siempre.
 
@@ -65,6 +65,29 @@ pasarla al lanzador.
 El campo de importación de cookie era multilínea visible. Corrección
 (`src/gui/app.rs`): campo de **contraseña** (enmascarado).
 
+### S-8 — SSRF vía redirección (BAJO) — MITIGADO
+
+Aunque la URL inicial se valida por host (S-1), una respuesta `3xx` con
+`Location` a otro host habría provocado una petición saliente a un host ajeno.
+Corrección (`src/api/client.rs`): política de redirecciones que solo sigue al
+**mismo host** y limita a 10 saltos. (Reqwest ya elimina `Cookie`/`Authorization`
+en redirecciones cross-host.)
+
+## Dependencias (`cargo audit`)
+
+Ejecutado con `cargo-audit 0.22.2`: **sin vulnerabilidades** en el árbol (629
+crates). Cuatro avisos informativos:
+
+| Crate | Tipo | Nota |
+| ----- | ---- | ---- |
+| `glib 0.18.5` | **unsound** (RUSTSEC-2024-0429) | vía `gtk` del feature **`webview`**; corregido solo en `>=0.20.0` (wry 0.57 aún usa gtk 0.18). Afecta a `glib::VariantStrIter` (no usado directamente); riesgo práctico bajo. Evitable no usando `webview`. |
+| `number_prefix 0.4.0` | unmaintained | transitivo de `indicatif` (CLI). |
+| `proc-macro-error 1.0.4` | unmaintained | de compilación (macros). |
+| `ttf-parser 0.25.1` | unmaintained | transitivo de `egui`/`eframe` (fuentes, GUI). |
+
+Recomendación: ejecutar `cargo audit` en CI y actualizar `wry`/`gtk-rs` cuando
+publiquen versiones con `glib >= 0.20`.
+
 ## Aspectos verificados (correctos)
 
 - **TLS siempre verificado**: `reqwest` con `rustls-tls` (raíces Mozilla), sin
@@ -91,14 +114,13 @@ El campo de importación de cookie era multilínea visible. Corrección
 
 ## Riesgos residuales / recomendaciones
 
-- **S-8 (informativo)**: `o2cloud login --import-cookie '<cookie>'` pasa el secreto
+- **S-9 (informativo)**: `o2cloud login --import-cookie '<cookie>'` pasa el secreto
   como **argumento de línea de comandos**, visible en `ps` y en el historial del
   shell. Recomendación: usar el login por **WebView**/navegador de la GUI o
   `O2CLOUD_COOKIE` (evitando historial); el comando es un *fallback* de desarrollo.
-- **S-9 (informativo)**: ejecutar **`cargo audit`** en CI para vigilar avisos
-  RustSec de las dependencias. No se detectaron versiones retiradas conocidas en
-  las dependencias directas.
-- **S-10 (informativo)**: las respuestas de metadatos se leen completas en memoria
+- **S-10 (informativo)**: dependencias (ver tabla `cargo audit` arriba); ejecutar
+  `cargo audit` en CI.
+- **S-11 (informativo)**: las respuestas de metadatos se leen completas en memoria
   (`resp.text()`) sin límite de tamaño. Riesgo bajo (host de confianza); se podría
   añadir un tope si se desea.
 - `webview`: `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` se documenta como

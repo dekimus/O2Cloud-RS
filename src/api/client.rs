@@ -50,6 +50,7 @@ impl O2CloudClient {
             .default_headers(headers.clone())
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
+            .redirect(same_host_redirect_policy())
             .build()?;
 
         // Cliente de transferencias (subida/descarga): sin timeout total, solo
@@ -57,6 +58,7 @@ impl O2CloudClient {
         let transfer_http = Client::builder()
             .default_headers(headers)
             .connect_timeout(Duration::from_secs(15))
+            .redirect(same_host_redirect_policy())
             .build()?;
 
         Ok(Self {
@@ -368,6 +370,27 @@ impl O2CloudClient {
 /// Elimina un fichero ignorando errores (limpieza de parciales).
 async fn remove_file_quietly(path: &Path) {
     let _ = tokio::fs::remove_file(path).await;
+}
+
+/// Política de redirecciones: solo permite seguir al **mismo host** que el
+/// original (evita SSRF vía `Location` a un host ajeno). Reqwest además elimina
+/// las cabeceras sensibles en redirecciones cross-host por defecto.
+fn same_host_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= 10 {
+            return attempt.error("too many redirects");
+        }
+        let same_host = attempt
+            .previous()
+            .first()
+            .and_then(|url| url.host_str())
+            .is_some_and(|origin| attempt.url().host_str() == Some(origin));
+        if same_host {
+            attempt.follow()
+        } else {
+            attempt.stop()
+        }
+    })
 }
 
 /// Mapea un estado HTTP a un error tipado (o `None` si es 2xx).

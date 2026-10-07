@@ -476,13 +476,19 @@ corrigieron 7 puntos; los más relevantes:
     implementaciones manuales que redactan cookie/validationKey/url.
 -   **Inyección de argumentos del navegador (BAJO)**: se valida `http(s)://`.
 -   **Cookie visible en la GUI (BAJO)**: campo enmascarado.
+-   **SSRF vía redirección (BAJO)**: política de redirecciones solo mismo host.
 
 Verificado correcto: TLS siempre verificado (rustls), sin `unsafe`, sin shell ni
 `eval`, secretos solo en keyring/env, redacción en errores/logs, `url` con
 `skip_serializing`, saneado anti-traversal y `.part`+rename atómico.
 
+`cargo audit` (0.22.2): **sin vulnerabilidades**; avisos informativos:
+`glib 0.18.5` *unsound* (RUSTSEC-2024-0429, vía gtk del feature `webview`;
+corregido en `>=0.20.0`) y `number_prefix`/`proc-macro-error`/`ttf-parser`
+unmaintained (transitivos).
+
 Riesgo residual: `login --import-cookie` expone el secreto en `ps`/historial
-(usar WebView/navegador). Recomendado ejecutar `cargo audit` en CI.
+(usar WebView/navegador).
 
 ## Fuentes externas
 
