@@ -373,6 +373,10 @@ respecto a lo deducido de las implementaciones de referencia:
         `{"data":{"folders":[id]}}`.
     El `media/file?action=softdelete` **con body es un no-op**.
 -   **subida**: `success` es una **cadena** ("Media uploaded successfully").
+-   **papelera**: listar con `GET /sapi/media/trash?action=get` →
+    `data.entries[]{date,id,name,type}` (`type`: `media`|`folder`). El vaciado
+    se hace borrando **permanentemente** cada entrada (no hay endpoint masivo
+    confirmado); restaurar sigue sin confirmar.
 -   **cp/copy**: **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados).
 
 ## Decisiones de arquitectura

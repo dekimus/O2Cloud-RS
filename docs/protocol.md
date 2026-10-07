@@ -162,8 +162,9 @@ devuelven el objeto directamente sin envelope; hay que tolerarlo.
 | Revisión get | POST | `/sapi/media/revision?action=get` | TBD | TBD | AGENTS | UNCONFIRMED |
 | Revisión restore | POST | `/sapi/media/revision?action=restore` | TBD | TBD | AGENTS | UNCONFIRMED |
 | Miniatura | GET | `/sapi/download/thumbnail?action=get&fdoid=<id>` | — | bytes | Python + AGENTS | OBSERVED |
-| Papelera listar | GET/POST | `/sapi/media/trash` | TBD | TBD | AGENTS | UNCONFIRMED |
-| Papelera restaurar/vaciar | POST | `/sapi/trash/folder` | TBD | TBD | AGENTS | UNCONFIRMED |
+| Papelera listar | GET | `/sapi/media/trash?action=get` | — | `data.entries[]{date,id,name,type}` | Live | CONFIRMED |
+| Papelera vaciar | POST | borrado permanente por entrada | — | — | Live | CONFIRMED |
+| Papelera restaurar | POST | `/sapi/media/trash?action=…` | TBD | TBD | — | UNCONFIRMED |
 | Buscar | — | (sin endpoint confirmado) | — | — | — | UNCONFIRMED |
 | Shares/álbumes/labels | — | `/sapi/media/set`, `/sapi/label`, `/sapi/link` | best-effort | — | AGENTS | UNCONFIRMED |
 
@@ -305,12 +306,16 @@ respecto a lo deducido de las implementaciones de referencia:
   El `media/file?action=softdelete` **con body es un no-op**.
 - **Subida**: `success` llega como **cadena** ("Media uploaded successfully").
 - **`cp`/copy**: **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados).
+- **Papelera**: listar con `GET /sapi/media/trash?action=get` →
+  `data.entries[]{date,id,name,type}` (`type`: `media`|`folder`). El vaciado se
+  hace borrando **permanentemente** cada entrada (no hay endpoint masivo
+  confirmado). Restaurar sigue sin confirmar.
 
 ## 11. Áreas no confirmadas (no implementar sin captura live)
 
 - Búsqueda server-side (sin endpoint).
 - Shares, álbumes, labels.
-- Restore/empty exacto de papelera.
+- Restaurar de papelera (el listado y el vaciado ya están confirmados).
 - Parámetros de `export`/`zip`.
 - `cp`/copy server-side (cuerpo del endpoint desconocido; `COM-1011`).
 - `remove-item` y borrado recursivo de carpetas.

@@ -269,7 +269,8 @@ con `eframe`/`egui` (0.36). Es un binario aparte (`o2cloud-gui`) activado con
   de borrado.
 
 Vistas: explorador (navegación por id de carpeta, crear/subir/descargar/mover/
-borrar), cuenta (estado + cuota) y sesión (importar cookie / logout). La subida
+borrar —también **carpetas**—), **papelera** (listar + vaciar con confirmación),
+cuenta (estado + cuota) y sesión (importar cookie / logout). La subida
 y descarga muestran **progreso** (el `service` acepta un `ProgressReporter`
 alternativo) y los campos locales usan **diálogos nativos** (`rfd`).
 

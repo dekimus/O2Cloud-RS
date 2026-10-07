@@ -6,6 +6,7 @@ mod ls;
 mod quota;
 mod stat;
 mod status;
+mod trash;
 mod tree;
 mod upload;
 
@@ -18,6 +19,7 @@ pub use ls::{list, list_folder, Listing};
 pub use quota::quota;
 pub use stat::stat;
 pub use status::{status, StatusInfo};
+pub use trash::{trash_empty, trash_list};
 pub use tree::{tree, Tree, TreeNode};
 pub use upload::{upload, UploadOptions, UploadOutcome};
 

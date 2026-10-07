@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, HashSet};
 use serde::Deserialize;
 
 use crate::api::client::O2CloudClient;
-use crate::api::models::{Id, MediaItem, MediaListing, ValidationEntry};
+use crate::api::models::{Id, MediaItem, MediaListing, TrashEntry, ValidationEntry};
 use crate::error::{Error, Result};
 
 /// Operaciones sobre el recurso `media`.
@@ -148,6 +148,20 @@ impl MediaApi<'_> {
                 .await?;
         }
         Ok(())
+    }
+
+    /// Lista la papelera. `GET /sapi/media/trash?action=get` → `data.entries[]`.
+    pub async fn trash(&self) -> Result<Vec<TrashEntry>> {
+        #[derive(Deserialize)]
+        struct TrashResponse {
+            #[serde(default)]
+            entries: Vec<TrashEntry>,
+        }
+        let resp: TrashResponse = self
+            .client
+            .get("/media/trash", &[("action", "get")])
+            .await?;
+        Ok(resp.entries)
     }
 }
 

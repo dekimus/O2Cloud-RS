@@ -34,6 +34,10 @@ pub enum Command {
     Move { source: String, dest: String },
     /// Elimina un elemento (papelera o permanente).
     Remove { remote: String, permanent: bool },
+    /// Lista la papelera.
+    TrashList,
+    /// Vacía la papelera.
+    TrashEmpty,
     /// Guarda una cookie de sesión (login).
     SaveSession(String),
     /// Borra la sesión (logout).
@@ -53,6 +57,8 @@ pub enum Event {
     Quota(Quota),
     /// Contenido de una carpeta.
     Listing(service::Listing),
+    /// Contenido de la papelera.
+    Trash(Vec<crate::api::models::TrashEntry>),
     /// Progreso de una transferencia.
     Progress(ProgressEvent),
     /// Mensaje de éxito.
@@ -251,6 +257,18 @@ async fn run_client_command(
             let target = service::resolve_removable(client, &remote).await?;
             service::remove(client, &target, permanent).await?;
             Ok(vec![Event::Message(format!("Eliminado {}", target.name()))])
+        }
+        Command::TrashList => {
+            let entries = service::trash_list(client).await?;
+            Ok(vec![Event::Trash(entries)])
+        }
+        Command::TrashEmpty => {
+            let removed = service::trash_empty(client).await?;
+            let entries = service::trash_list(client).await?;
+            Ok(vec![
+                Event::Message(format!("Papelera vaciada ({removed} elementos)")),
+                Event::Trash(entries),
+            ])
         }
         Command::SaveSession(_) | Command::ClearSession => Ok(Vec::new()),
     }

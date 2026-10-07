@@ -1,6 +1,6 @@
 //! Estado de la GUI (view-model, sin dependencias de UI) — testeable.
 
-use crate::api::models::{Folder, Id, MediaItem, Quota};
+use crate::api::models::{Folder, Id, MediaItem, Quota, TrashEntry};
 use crate::progress::ProgressEvent;
 use crate::service::StatusInfo;
 
@@ -10,7 +10,9 @@ pub enum Tab {
     /// Explorador de archivos.
     #[default]
     Browser,
-    /// Cuenta (estado, cuota, suscripción).
+    /// Papelera.
+    Trash,
+    /// Cuenta (estado, cuota).
     Account,
     /// Sesión (login/logout).
     Session,
@@ -33,10 +35,19 @@ pub struct Inputs {
     pub cookie: String,
 }
 
+/// Elemento seleccionado (carpeta o archivo).
+#[derive(Debug, Clone)]
+pub enum Selection {
+    /// Carpeta seleccionada.
+    Folder(Folder),
+    /// Archivo seleccionado.
+    File(MediaItem),
+}
+
 /// Petición de borrado pendiente de confirmación.
 #[derive(Debug, Clone)]
 pub struct DeleteRequest {
-    /// Referencia remota (id o ruta).
+    /// Referencia remota (id).
     pub remote: String,
     /// Descripción legible.
     pub label: String,
@@ -79,6 +90,8 @@ pub struct AppState {
     pub folders: Vec<Folder>,
     /// Archivos de la carpeta actual.
     pub files: Vec<MediaItem>,
+    /// Elementos en la papelera.
+    pub trash: Vec<TrashEntry>,
     /// Cuota de almacenamiento.
     pub quota: Option<Quota>,
     /// Estado de la sesión.
@@ -89,12 +102,14 @@ pub struct AppState {
     pub message: Option<String>,
     /// Último error.
     pub error: Option<String>,
-    /// Archivo seleccionado (id) para acciones.
-    pub selected_file: Option<String>,
+    /// Elemento seleccionado.
+    pub selected: Option<Selection>,
     /// Entradas de texto de las acciones.
     pub inputs: Inputs,
     /// Borrado pendiente de confirmación.
     pub pending_delete: Option<DeleteRequest>,
+    /// Vaciado de papelera pendiente de confirmación.
+    pub pending_empty_trash: bool,
     /// Progreso de la transferencia en curso.
     pub progress: Option<Progress>,
 }
@@ -139,34 +154,80 @@ impl AppState {
     /// Fija la raíz (reinicia las migas).
     pub fn set_root(&mut self, root: Folder) {
         self.breadcrumb = vec![root];
-        self.selected_file = None;
+        self.selected = None;
     }
 
     /// Entra en una subcarpeta.
     pub fn enter(&mut self, folder: Folder) {
         self.breadcrumb.push(folder);
-        self.selected_file = None;
+        self.selected = None;
     }
 
     /// Sube a la carpeta padre; devuelve `true` si cambió.
     pub fn go_up(&mut self) -> bool {
         if self.breadcrumb.len() > 1 {
             self.breadcrumb.pop();
-            self.selected_file = None;
+            self.selected = None;
             true
         } else {
             false
         }
     }
 
-    /// Nombre a mostrar del archivo seleccionado.
+    /// Selecciona una carpeta.
+    pub fn select_folder(&mut self, folder: Folder) {
+        self.selected = Some(Selection::Folder(folder));
+    }
+
+    /// Selecciona un archivo.
+    pub fn select_file(&mut self, file: MediaItem) {
+        self.selected = Some(Selection::File(file));
+    }
+
+    /// Id del elemento seleccionado.
+    #[must_use]
+    pub fn selected_id(&self) -> Option<&Id> {
+        match &self.selected {
+            Some(Selection::Folder(folder)) => Some(&folder.id),
+            Some(Selection::File(file)) => Some(&file.id),
+            None => None,
+        }
+    }
+
+    /// Nombre del elemento seleccionado.
     #[must_use]
     pub fn selected_name(&self) -> Option<&str> {
-        let id = self.selected_file.as_deref()?;
-        self.files
-            .iter()
-            .find(|file| file.id.as_str() == id)
-            .and_then(|file| file.name.as_deref())
+        match &self.selected {
+            Some(Selection::Folder(folder)) => Some(&folder.name),
+            Some(Selection::File(file)) => file.name.as_deref(),
+            None => None,
+        }
+    }
+
+    /// ¿El elemento seleccionado es una carpeta?
+    #[must_use]
+    pub fn selected_is_folder(&self) -> bool {
+        matches!(self.selected, Some(Selection::Folder(_)))
+    }
+
+    /// Carpeta seleccionada, si lo es.
+    #[must_use]
+    pub fn selected_folder(&self) -> Option<&Folder> {
+        match &self.selected {
+            Some(Selection::Folder(folder)) => Some(folder),
+            _ => None,
+        }
+    }
+
+    /// Descripción legible del elemento seleccionado (para confirmaciones).
+    #[must_use]
+    pub fn selected_label(&self) -> Option<String> {
+        let name = self.selected_name()?;
+        if self.selected_is_folder() {
+            Some(format!("la carpeta '{name}'"))
+        } else {
+            Some(format!("el archivo '{name}'"))
+        }
     }
 
     /// Aplica un evento de progreso al estado.
@@ -203,6 +264,10 @@ mod tests {
         }
     }
 
+    fn media(id: &str, name: &str) -> MediaItem {
+        serde_json::from_value(serde_json::json!({ "id": id, "name": name })).unwrap()
+    }
+
     #[test]
     fn breadcrumb_navigation() {
         let mut state = AppState::default();
@@ -222,5 +287,24 @@ mod tests {
         assert!(state.go_up());
         assert!(state.at_root());
         assert!(!state.go_up());
+    }
+
+    #[test]
+    fn selection_folder_and_file() {
+        let mut state = AppState::default();
+        state.select_folder(folder(7, "docs"));
+        assert!(state.selected_is_folder());
+        assert_eq!(state.selected_id().map(Id::as_str), Some("7"));
+        assert_eq!(state.selected_label().as_deref(), Some("la carpeta 'docs'"));
+
+        state.select_file(media("9", "a.txt"));
+        assert!(!state.selected_is_folder());
+        assert_eq!(
+            state.selected_label().as_deref(),
+            Some("el archivo 'a.txt'")
+        );
+
+        state.enter(folder(3, "x"));
+        assert!(state.selected.is_none());
     }
 }

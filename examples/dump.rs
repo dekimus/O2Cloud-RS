@@ -88,6 +88,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         print("SAVE RESPONSE", resp)?;
     }
 
+    // Sonda opcional de GET arbitrario: DUMP_GET_PATH=/media?action=get&softdeleted=true.
+    if let Ok(path) = std::env::var("DUMP_GET_PATH") {
+        let resp: serde_json::Value = client.get(&path, &[]).await?;
+        print("GET RESPONSE", resp)?;
+    }
+
     // Sonda opcional de POST arbitrario para depurar el protocolo:
     // DUMP_POST_BODY=<json> [DUMP_POST_PATH=/media/folder] [DUMP_POST_ACTION=add-item].
     if let Ok(body) = std::env::var("DUMP_POST_BODY") {

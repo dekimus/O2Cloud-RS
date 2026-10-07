@@ -222,6 +222,22 @@ pub struct ValidationEntry {
     pub status: Option<String>,
 }
 
+/// Entrada de la papelera (`GET /sapi/media/trash?action=get`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrashEntry {
+    /// Id del elemento.
+    pub id: Id,
+    /// Nombre.
+    #[serde(default)]
+    pub name: String,
+    /// Fecha (epoch-ms).
+    #[serde(default)]
+    pub date: Option<i64>,
+    /// Tipo: `media` o `folder`.
+    #[serde(rename = "type", default)]
+    pub kind: Option<String>,
+}
+
 /// Perfil de cuenta (parcial; tolerante a campos desconocidos).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Profile {

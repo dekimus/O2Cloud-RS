@@ -2,7 +2,7 @@
 
 use eframe::egui;
 
-use crate::gui::state::{AppState, DeleteRequest, Tab};
+use crate::gui::state::{AppState, DeleteRequest, Selection, Tab};
 use crate::gui::worker::{Command, Event, Worker};
 
 /// Aplicación GUI.
@@ -35,6 +35,7 @@ impl O2CloudApp {
                     self.state.folders = listing.folders;
                     self.state.files = listing.files;
                 }
+                Event::Trash(entries) => self.state.trash = entries,
                 Event::Progress(event) => self.state.apply_progress(event),
                 Event::Message(message) => {
                     self.state.message = Some(message);
@@ -60,6 +61,12 @@ impl O2CloudApp {
                 ui.heading("O2 Cloud");
                 ui.separator();
                 ui.selectable_value(&mut self.state.tab, Tab::Browser, "Archivos");
+                if ui
+                    .selectable_value(&mut self.state.tab, Tab::Trash, "Papelera")
+                    .clicked()
+                {
+                    self.worker.send(Command::TrashList);
+                }
                 ui.selectable_value(&mut self.state.tab, Tab::Account, "Cuenta");
                 ui.selectable_value(&mut self.state.tab, Tab::Session, "Sesión");
                 ui.separator();
@@ -120,6 +127,8 @@ impl O2CloudApp {
                     self.reload_current();
                 }
                 ui.label(format!("📁 {}", self.state.current_path()));
+                ui.separator();
+                ui.label("(clic = seleccionar · doble clic = abrir)");
             });
             ui.separator();
 
@@ -127,23 +136,30 @@ impl O2CloudApp {
             let files = self.state.files.clone();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for folder in &folders {
-                    if ui
-                        .selectable_label(false, format!("📁 {}/", folder.name))
-                        .clicked()
-                    {
+                    let selected = matches!(
+                        &self.state.selected,
+                        Some(Selection::Folder(selected)) if selected.id == folder.id
+                    );
+                    let response = ui.selectable_label(selected, format!("📁 {}/", folder.name));
+                    if response.double_clicked() {
                         self.state.enter(folder.clone());
                         self.worker.send(Command::List(folder.id.clone()));
+                    } else if response.clicked() {
+                        self.state.select_folder(folder.clone());
                     }
                 }
                 for file in &files {
+                    let selected = matches!(
+                        &self.state.selected,
+                        Some(Selection::File(selected)) if selected.id == file.id
+                    );
                     let name = file.name.as_deref().unwrap_or("?");
                     let size = file
                         .size
                         .map_or_else(String::new, crate::util::format_bytes);
-                    let selected = self.state.selected_file.as_deref() == Some(file.id.as_str());
                     let label = format!("📄 {name}    {size}    [{}]", file.id);
                     if ui.selectable_label(selected, label).clicked() {
-                        self.state.selected_file = Some(file.id.as_str().to_string());
+                        self.state.select_file(file.clone());
                     }
                 }
                 if folders.is_empty() && files.is_empty() {
@@ -191,57 +207,115 @@ impl O2CloudApp {
         }
 
         ui.separator();
-        if let Some(selected) = self.state.selected_file.clone() {
-            let name = self.state.selected_name().unwrap_or("?").to_string();
-            ui.label(format!("Seleccionado: {name}"));
+        self.ui_selection_actions(ui);
+    }
 
-            ui.label("Descargar a (ruta local):");
-            let default_name = self.state.selected_name().map(str::to_string);
+    fn ui_selection_actions(&mut self, ui: &mut egui::Ui) {
+        match self.state.selected.clone() {
+            Some(Selection::Folder(folder)) => {
+                ui.label(format!("Carpeta: {}", folder.name));
+                if ui.button("Abrir").clicked() {
+                    self.state.enter(folder.clone());
+                    self.worker.send(Command::List(folder.id.clone()));
+                }
+                ui.checkbox(&mut self.state.inputs.permanent, "Borrado permanente");
+                if ui.button("Eliminar carpeta…").clicked() {
+                    self.state.pending_delete = Some(DeleteRequest {
+                        remote: folder.id.as_str().to_string(),
+                        label: format!("la carpeta '{}'", folder.name),
+                        permanent: self.state.inputs.permanent,
+                    });
+                }
+            }
+            Some(Selection::File(file)) => {
+                let name = file.name.clone().unwrap_or_default();
+                ui.label(format!("Archivo: {name}"));
+
+                ui.label("Descargar a (ruta local):");
+                let default_name = file.name.clone();
+                ui.horizontal(|ui| {
+                    ui.text_edit_singleline(&mut self.state.inputs.download_dest);
+                    if ui.button("…").clicked() {
+                        let mut dialog = rfd::FileDialog::new();
+                        if let Some(name) = &default_name {
+                            dialog = dialog.set_file_name(name);
+                        }
+                        if let Some(path) = dialog.save_file() {
+                            self.state.inputs.download_dest = path.display().to_string();
+                        }
+                    }
+                });
+                if ui.button("Descargar").clicked() {
+                    let dest = self.state.inputs.download_dest.trim().to_string();
+                    if !dest.is_empty() {
+                        self.worker.send(Command::Download {
+                            remote: file.id.as_str().to_string(),
+                            dest,
+                        });
+                    }
+                }
+
+                ui.label("Mover a (carpeta remota):");
+                ui.text_edit_singleline(&mut self.state.inputs.move_dest);
+                if ui.button("Mover").clicked() {
+                    let dest = self.state.inputs.move_dest.trim().to_string();
+                    if !dest.is_empty() {
+                        self.worker.send(Command::Move {
+                            source: file.id.as_str().to_string(),
+                            dest,
+                        });
+                    }
+                }
+
+                ui.checkbox(&mut self.state.inputs.permanent, "Borrado permanente");
+                if ui.button("Eliminar…").clicked() {
+                    self.state.pending_delete = Some(DeleteRequest {
+                        remote: file.id.as_str().to_string(),
+                        label: format!("el archivo '{name}'"),
+                        permanent: self.state.inputs.permanent,
+                    });
+                }
+            }
+            None => {
+                ui.label("(selecciona una carpeta o un archivo)");
+            }
+        }
+    }
+
+    fn ui_trash(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.text_edit_singleline(&mut self.state.inputs.download_dest);
-                if ui.button("…").clicked() {
-                    let mut dialog = rfd::FileDialog::new();
-                    if let Some(name) = &default_name {
-                        dialog = dialog.set_file_name(name);
-                    }
-                    if let Some(path) = dialog.save_file() {
-                        self.state.inputs.download_dest = path.display().to_string();
-                    }
+                ui.heading("Papelera");
+                if ui.button("Refrescar").clicked() {
+                    self.worker.send(Command::TrashList);
+                }
+                if ui
+                    .add_enabled(
+                        !self.state.trash.is_empty(),
+                        egui::Button::new("Vaciar papelera…"),
+                    )
+                    .clicked()
+                {
+                    self.state.pending_empty_trash = true;
                 }
             });
-            if ui.button("Descargar").clicked() {
-                let dest = self.state.inputs.download_dest.trim().to_string();
-                if !dest.is_empty() {
-                    self.worker.send(Command::Download {
-                        remote: selected.clone(),
-                        dest,
-                    });
-                }
-            }
+            ui.separator();
 
-            ui.label("Mover a (carpeta remota):");
-            ui.text_edit_singleline(&mut self.state.inputs.move_dest);
-            if ui.button("Mover").clicked() {
-                let dest = self.state.inputs.move_dest.trim().to_string();
-                if !dest.is_empty() {
-                    self.worker.send(Command::Move {
-                        source: selected.clone(),
-                        dest,
-                    });
+            let entries = self.state.trash.clone();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for entry in &entries {
+                    let icon = if entry.kind.as_deref() == Some("folder") {
+                        "📁"
+                    } else {
+                        "📄"
+                    };
+                    ui.label(format!("{icon} {}    [{}]", entry.name, entry.id));
                 }
-            }
-
-            ui.checkbox(&mut self.state.inputs.permanent, "Borrado permanente");
-            if ui.button("Eliminar…").clicked() {
-                self.state.pending_delete = Some(DeleteRequest {
-                    remote: selected,
-                    label: name,
-                    permanent: self.state.inputs.permanent,
-                });
-            }
-        } else {
-            ui.label("(selecciona un archivo)");
-        }
+                if entries.is_empty() {
+                    ui.label("(papelera vacía)");
+                }
+            });
+        });
     }
 
     fn ui_account(&mut self, ui: &mut egui::Ui) {
@@ -323,7 +397,7 @@ impl O2CloudApp {
                 } else {
                     "a la papelera"
                 };
-                ui.label(format!("¿Eliminar «{}» {mode}?", request.label));
+                ui.label(format!("¿Eliminar {} {mode}?", request.label));
                 ui.horizontal(|ui| {
                     if ui.button("Cancelar").clicked() {
                         self.state.pending_delete = None;
@@ -338,6 +412,31 @@ impl O2CloudApp {
                 });
             });
     }
+
+    fn ui_confirm_empty_trash(&mut self, ui: &mut egui::Ui) {
+        if !self.state.pending_empty_trash {
+            return;
+        }
+        egui::Window::new("Vaciar papelera")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+            .show(ui.ctx(), |ui| {
+                ui.label(format!(
+                    "¿Eliminar permanentemente {} elemento(s) de la papelera?",
+                    self.state.trash.len()
+                ));
+                ui.horizontal(|ui| {
+                    if ui.button("Cancelar").clicked() {
+                        self.state.pending_empty_trash = false;
+                    }
+                    if ui.button("Vaciar").clicked() {
+                        self.worker.send(Command::TrashEmpty);
+                        self.state.pending_empty_trash = false;
+                    }
+                });
+            });
+    }
 }
 
 impl eframe::App for O2CloudApp {
@@ -347,9 +446,11 @@ impl eframe::App for O2CloudApp {
         self.ui_bottom(ui);
         match self.state.tab {
             Tab::Browser => self.ui_browser(ui),
+            Tab::Trash => self.ui_trash(ui),
             Tab::Account => self.ui_account(ui),
             Tab::Session => self.ui_session(ui),
         }
         self.ui_confirm_delete(ui);
+        self.ui_confirm_empty_trash(ui);
     }
 }

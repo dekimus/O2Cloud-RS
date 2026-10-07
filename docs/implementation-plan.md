@@ -130,6 +130,8 @@ iteración.
   (estado + cuota), sesión (importar cookie / logout).
 - [x] progreso de subida/descarga (`ProgressReporter` con callback) y diálogos
   de archivo nativos (`rfd`).
+- [x] borrado de carpetas (selección de carpeta) y pestaña **Papelera**
+  (listar + vaciar con confirmación).
 - [x] verificado que arranca (smoke test bajo Xvfb).
 
 ## Próximos pasos (siguiente iteración)
