@@ -29,6 +29,10 @@ const POLL_INTERVAL: Duration = Duration::from_millis(500);
 const LOAD_TIMEOUT: Duration = Duration::from_secs(30);
 /// Tiempo máximo de espera del login antes de cancelar.
 const OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
+/// Anchura inicial de la ventana.
+const WINDOW_WIDTH: i32 = 640;
+/// Altura inicial de la ventana.
+const WINDOW_HEIGHT: i32 = 800;
 
 /// Mensaje de ayuda cuando la `WebView` no funciona.
 pub const TROUBLESHOOTING: &str = "\
@@ -64,10 +68,9 @@ pub fn capture_cookie_header() -> CaptureOutcome {
 
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
     window.set_title("O2 Cloud — Iniciar sesión");
-    window.set_default_size(480, 720);
+    window.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT);
     let fixed = gtk::Fixed::new();
     window.add(&fixed);
-    window.show_all();
 
     let result: Rc<RefCell<Option<String>>> = Rc::new(RefCell::new(None));
     let finished = Rc::new(RefCell::new(false));
@@ -76,6 +79,7 @@ pub fn capture_cookie_header() -> CaptureOutcome {
     let loaded_for_handler = Rc::clone(&loaded);
     let builder = wry::WebViewBuilder::new()
         .with_url(login_url())
+        .with_bounds(rect(f64::from(WINDOW_WIDTH), f64::from(WINDOW_HEIGHT)))
         .with_on_page_load_handler(move |event, _url| {
             if matches!(event, wry::PageLoadEvent::Finished) {
                 *loaded_for_handler.borrow_mut() = true;
@@ -86,6 +90,25 @@ pub fn capture_cookie_header() -> CaptureOutcome {
         Ok(webview) => Rc::new(webview),
         Err(e) => return CaptureOutcome::Unavailable(format!("cannot create webview: {e}")),
     };
+
+    // En GTK la WebView no se redimensiona sola: hay que fijar sus bounds al
+    // tamaño de la ventana (si no, se queda en su tamaño por defecto).
+    {
+        let webview = Rc::clone(&webview);
+        window.connect_size_allocate(move |_, allocation| {
+            tracing::debug!(
+                width = allocation.width(),
+                height = allocation.height(),
+                "resizing webview to window"
+            );
+            let _ = webview.set_bounds(rect(
+                f64::from(allocation.width()),
+                f64::from(allocation.height()),
+            ));
+        });
+    }
+
+    window.show_all();
 
     let origin = origin();
 
@@ -214,6 +237,14 @@ fn origin() -> String {
 
 fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
+}
+
+/// Construye un `Rect` lógico anclado a la esquina superior izquierda.
+fn rect(width: f64, height: f64) -> wry::Rect {
+    wry::Rect {
+        position: wry::dpi::Position::Logical(wry::dpi::LogicalPosition::new(0.0, 0.0)),
+        size: wry::dpi::Size::Logical(wry::dpi::LogicalSize::new(width, height)),
+    }
 }
 
 /// Construye la cabecera `Cookie` a partir de pares `(nombre, valor)`.

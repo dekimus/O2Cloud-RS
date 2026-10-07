@@ -401,6 +401,11 @@ impedir que el usuario lo sobrescriba. Si la página no carga, se cae al login
 con navegador del sistema; en contenedores puede hacer falta
 `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` y/o `LIBGL_ALWAYS_SOFTWARE=1`.
 
+Layout (2026-10-07): con `wry` + GTK la `WebView` **no se redimensiona sola**
+(queda en su tamaño por defecto). Hay que fijar sus bounds al tamaño de la
+ventana con `WebView::set_bounds` en `connect_size_allocate`; el builder de
+`build_gtk(&gtk::Fixed)` no lo hace automáticamente.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:
