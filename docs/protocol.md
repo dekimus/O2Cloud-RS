@@ -33,7 +33,7 @@ clientes oficiales diferentes:
 
 ### 3.1 Flujo web OIDC (nuestro objetivo) — CONFIRMED
 
-Este es el flujo que usa el portal web y el que sigue `AGENTS.md`/`MEMORY.md`.
+Este es el flujo que usa el portal web y el que sigue este cliente.
 
 1. El usuario accede a `cloud.o2online.es/login`.
 2. Redirección al IdP de Mi O2 (`https://t3.o2online.es/acceso/`) con:
@@ -75,8 +75,8 @@ de escritorio/móvil (user-agent `QtWebEngine`, `platform=macos`):
 5. Las llamadas SAPI envían `Authorization: oauth <base64>` **y** la cookie
    `JSESSIONID`, y permite *silent re-login* reutilizando el `access_token`.
 
-**Decisión:** nuestro proyecto sigue el **flujo web (3.1)** porque es el que
-`AGENTS.md` fija como objetivo y el único con `client_id` público documentado.
+**Decisión:** nuestro proyecto sigue el **flujo web (3.1)** porque es el objetivo
+del cliente y el único con `client_id` público documentado.
 El flujo 3.2 se documenta como alternativa corroborada pero **no se
 implementa**.
 

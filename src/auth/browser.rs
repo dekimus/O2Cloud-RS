@@ -1,7 +1,7 @@
 //! Login asistido por navegador.
 //!
 //! El portal usa OIDC con autenticación fuerte (SMS), por lo que no hay login
-//! silencioso con usuario/contraseña. Estrategia (ver `AGENTS.md`):
+//! silencioso con usuario/contraseña. Estrategia:
 //!
 //! 1. Abrir el portal de acceso en el **navegador del sistema**; el usuario
 //!    completa teléfono + SMS.

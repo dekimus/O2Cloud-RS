@@ -8,7 +8,7 @@ use crate::util::redact_secrets;
 ///
 /// Distingue explícitamente entre fallos de autenticación, error HTTP, error
 /// SAPI (que puede llegar dentro de un HTTP 200), error de protocolo y fallos
-/// locales, tal como exige `AGENTS.md`.
+/// locales, tal como exige el modelo de errores del proyecto.
 #[derive(Debug, Error)]
 pub enum Error {
     /// No hay sesión local configurada (no se ha hecho `login`).

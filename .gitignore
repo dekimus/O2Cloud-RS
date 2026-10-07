@@ -1,7 +1,9 @@
-
-AGENTS.md
-MEMORY.md
 /target
 **/*.rs.bk
 Cargo.lock.orig
 .DS_Store
+
+# Notas internas y política de seguridad (no se publican en el repo)
+/AGENTS.md
+/MEMORY.md
+/SECURITY.md

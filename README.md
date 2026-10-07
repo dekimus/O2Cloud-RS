@@ -195,7 +195,7 @@ cargo run --release --features gui,webview --bin o2cloud-gui
 - Subidas y descargas en **streaming** (sin cargar el archivo en memoria).
 - Descarga restringida al mismo host/esquema (anti-SSRF) y saneado de nombres.
 
-Detalle completo en `SECURITY.md` y `docs/security-review.md`.
+Detalle completo en `docs/security-review.md`.
 
 ## Documentación
 
@@ -203,8 +203,6 @@ Detalle completo en `SECURITY.md` y `docs/security-review.md`.
 - `docs/architecture.md` — diseño y capas.
 - `docs/implementation-plan.md` — estado de las fases.
 - `docs/security-review.md` — auditoría de seguridad.
-- `SECURITY.md` — modelo de seguridad y cómo reportar.
-- `MEMORY.md` — conocimiento técnico persistente.
 
 ## Desarrollo
 

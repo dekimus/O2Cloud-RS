@@ -5,7 +5,7 @@ iteración.
 
 ## Fase 0 — Reconocimiento ✅
 
-- [x] Leer `AGENTS.md` y `MEMORY.md`.
+- [x] Leer las notas internas del proyecto.
 - [x] Estudiar `dbaratech/o2cloud` (docs + código).
 - [x] Estudiar `danielperez9430/o2cloud-cli` (código).
 - [x] Crear `docs/protocol.md` (tabla endpoint/método/body/respuesta/evidencia/estado).
@@ -114,7 +114,7 @@ iteración.
 
 ## Fase 12 — Documentación
 
-- [x] `README.md`, `docs/*`, `MEMORY.md` actualizados.
+- [x] `README.md` y `docs/*` actualizados.
 
 ## Fase 13 — No implementar todavía
 
