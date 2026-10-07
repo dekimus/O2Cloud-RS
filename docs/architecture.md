@@ -62,6 +62,7 @@ src/
     session.rs         Session: cookie header, extracción validationKey/JSESSIONID
     store.rs           trait SecretStore + KeyringStore + EnvStore + MemoryStore
     browser.rs         login asistido por navegador (BrowserOpener)
+    webview.rs         login con WebView embebida (feature `webview`, Linux)
   service/
     mod.rs             resolución de rutas remotas, identidad
     status.rs quota.rs ls.rs tree.rs stat.rs upload.rs download.rs files.rs
@@ -164,8 +165,19 @@ pub enum Error {
    guarda en el keyring y devuelve la sesión.
 
 `--import-cookie`/`--import-token` siguen disponibles para automatización (sin
-interacción). `BrowserOpener` está desacoplado para poder añadir una `WebView`
-embebida más adelante sin tocar el resto.
+interacción).
+
+### Login con WebView embebida (feature `webview`, Linux)
+
+Con `--features webview`, `o2cloud login` (sin flags) abre el portal en una
+`WebView` WebKitGTK dentro de una ventana GTK (`auth/webview.rs`) y captura las
+cookies del propio motor (`WebView::cookies_for_url`), sin paste manual. Se usa
+el bucle de GTK directamente (la `WebView` es `!Send`), y se ejecuta **antes**
+de crear el runtime async (necesita el hilo principal). Requiere WebKitGTK 4.1 +
+GTK3; por eso es una feature opt-in y no rompe builds sin esas librerías.
+
+Sin la feature (por defecto), el login usa el navegador del sistema y captura
+manual, que no necesita dependencias gráficas.
 
 
 ## 7. Configuración
@@ -257,6 +269,7 @@ pregunta y se exige `--yes`; un rechazo del usuario produce `Error::Cancelled`
 | `futures-util` | adaptación del stream (progreso) |
 | `wiremock` (dev) | mock HTTP |
 | `tempfile` (dev) | ficheros temporales en tests |
+| `wry` + `gtk` (opcional, `webview`) | WebView embebida (Linux) |
 
 Se añadirán `directories` (cuando se persista un archivo de config) y otras
 cuando lleguen las fases de download/config.

@@ -4,6 +4,9 @@ pub mod browser;
 pub mod session;
 pub mod store;
 
+#[cfg(all(feature = "webview", target_os = "linux"))]
+pub mod webview;
+
 pub use browser::{
     open_login_page, BrowserOpener, RecordingOpener, SystemBrowserOpener, INSTRUCTIONS, LOGIN_URL,
 };

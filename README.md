@@ -75,6 +75,25 @@ La sesión se guarda en el **keyring del sistema** (nunca en texto plano).
 
 Si una llamada devuelve **401**, la sesión ha caducado: repite `o2cloud login`.
 
+### Login con WebView embebida (opcional)
+
+Con la feature `webview` (solo Linux), `o2cloud login` abre el portal en una
+`WebView` embebida y captura la sesión automáticamente (sin copiar/pegar):
+
+```bash
+cargo build --release --features webview
+./target/release/o2cloud login
+```
+
+Requiere WebKitGTK 4.1 + GTK3:
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev
+```
+
+Sin la feature, `login` usa el navegador del sistema y la captura manual, que no
+necesita dependencias gráficas.
+
 ## Uso
 
 ```bash

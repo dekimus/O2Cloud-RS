@@ -32,6 +32,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2"
 
+[features]
+# Login con WebView embebida (requiere WebKitGTK 4.1 + GTK3 en Linux).
+webview = ["dep:wry", "dep:gtk"]
+
 # Backend de keyring por plataforma (el crate no trae ninguno por defecto).
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "3", features = ["apple-native"] }
@@ -41,6 +45,11 @@ keyring = { version = "3", features = ["windows-native"] }
 
 [target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies]
 keyring = { version = "3", features = ["sync-secret-service"] }
+
+# WebView embebida (solo Linux en esta iteración).
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = { version = "0.18", optional = true }
+wry = { version = "0.57", default-features = false, features = ["os-webview"], optional = true }
 
 [dev-dependencies]
 tempfile = "3"

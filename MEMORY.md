@@ -381,8 +381,14 @@ defecto**; sin una feature de backend usa un almacén *mock* no persistente
 
 Login asistido por navegador (2026-10-07): `o2cloud login` sin opciones abre
 el portal en el navegador del sistema y captura la cookie pegada por el
-usuario. La capa está desacoplada tras `BrowserOpener` para poder sustituirla
-por una `WebView` embebida.
+usuario. La capa está desacoplada tras `BrowserOpener`.
+
+Login con WebView embebida (feature opt-in `webview`, Linux): usa `wry` +
+`gtk` (WebKitGTK 4.1) para abrir el portal y leer las cookies del motor
+(`WebView::cookies_for_url`), capturando `JSESSIONID` + `validationKey` sin
+intervención del usuario. La `WebView` es `!Send` y se ejecuta en el hilo
+principal (bucle GTK) antes del runtime async. No es una feature por defecto
+para no imponer WebKitGTK a todas las builds.
 
 ## Fuentes externas
 

@@ -38,7 +38,10 @@ iteración.
 - [x] **login asistido por navegador**: `o2cloud login` (sin flags) abre el
   portal en el navegador del sistema, guía la captura de la cookie
   (`JSESSIONID` + `validationKey`) y la guarda en el keyring. Capa
-  `BrowserOpener` desacoplada (sustituible por `WebView` embebida).
+  `BrowserOpener` desacoplada.
+- [x] **login con WebView embebida** (feature opcional `webview`, Linux):
+  abre el portal en una `WebView` WebKitGTK, captura las cookies del motor y
+  las guarda en el keyring. Verificado end-to-end con un backend mock.
 - [x] backend de keyring por plataforma (`sync-secret-service` en Linux,
   `apple-native`/`windows-native`); el crate `keyring` no trae ninguno por
   defecto.
@@ -113,5 +116,5 @@ iteración.
 ## Próximos pasos (siguiente iteración)
 
 1. Confirmar `mv` (add-item/remove-item) y el borrado recursivo con tráfico real.
-2. WebView embebida opcional para captura automática de la sesión.
+2. Extender la `WebView` a macOS/Windows (en Linux ya está tras la feature `webview`).
 3. Ampliar tests de casos límite cuando se confirmen más endpoints.

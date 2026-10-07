@@ -15,13 +15,23 @@ use o2cloud::{service, O2CloudClient, Session};
 use serde_json::json;
 use std::path::Path;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
     init_logging(&cli);
     let output = Output::new(cli.json);
 
-    let code = match run(&cli, output).await {
+    // El login con WebView embebida necesita el bucle de GTK en el hilo
+    // principal, así que se ejecuta antes de construir el runtime async.
+    if let Some(code) = maybe_webview_login(&cli, output) {
+        std::process::exit(code);
+    }
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build tokio runtime");
+
+    let code = match runtime.block_on(run(&cli, output)) {
         Ok(()) => 0,
         Err(err) => {
             output.error(&err);
@@ -29,6 +39,50 @@ async fn main() {
         }
     };
     std::process::exit(code);
+}
+
+/// ¿Es un `login` sin opciones (candidato a WebView embebida)?
+#[allow(dead_code)]
+fn is_bare_login(cli: &Cli) -> bool {
+    matches!(
+        &cli.command,
+        Command::Login {
+            import_cookie: None,
+            import_token: None
+        }
+    )
+}
+
+/// Ejecuta el login con WebView si la feature está activa (Linux).
+///
+/// Devuelve `Some(exit_code)` si gestionó el login; `None` para que el flujo
+/// normal (navegador del sistema) se encargue de él.
+#[cfg(all(feature = "webview", target_os = "linux"))]
+fn maybe_webview_login(cli: &Cli, output: Output) -> Option<i32> {
+    if !is_bare_login(cli) {
+        return None;
+    }
+    let config = AppConfig::new(cli.profile.clone());
+    let code = match o2cloud::auth::webview::capture_cookie_header() {
+        Ok(cookie) => match store_and_report(&config, output, &cookie) {
+            Ok(()) => 0,
+            Err(err) => {
+                output.error(&err);
+                err.exit_code()
+            }
+        },
+        Err(err) => {
+            output.error(&err);
+            err.exit_code()
+        }
+    };
+    Some(code)
+}
+
+/// Sin la feature `webview`, el login normal usa el navegador del sistema.
+#[cfg(not(all(feature = "webview", target_os = "linux")))]
+fn maybe_webview_login(_cli: &Cli, _output: Output) -> Option<i32> {
+    None
 }
 
 /// Inicializa el logging (stderr). Respeta `RUST_LOG` si está definida.
