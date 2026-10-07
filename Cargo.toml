@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.85"
 description = "Cliente Linux no oficial para O2 Cloud (Telefónica España)"
 license = "MIT"
-repository = "https://example.invalid/o2cloud"
+repository = "https://github.com/dekimus/O2Cloud-RS"
 keywords = ["o2", "cloud", "cli", "telefonica", "storage"]
 categories = ["command-line-utilities"]
 

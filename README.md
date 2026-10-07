@@ -1,30 +1,38 @@
 # o2cloud
 
 Cliente **no oficial** para Linux de **O2 Cloud** (Telefónica España), escrito
-en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
+en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal y con
+una **interfaz gráfica nativa**.
 
 > ⚠️ Interoperabilidad no oficial. O2 Cloud no expone una API pública; este
 > cliente habla el SAPI de Funambol OneMediaHub observado en el portal web
 > `cloud.o2online.es`. No está respaldado por O2/Telefónica y la API puede
 > cambiar sin previo aviso.
 
-## Estado
+## Características
 
-- `o2cloud login --import-cookie '…'` — importa una sesión del navegador.
-- `o2cloud logout` — elimina la sesión.
-- `o2cloud status` — estado de la sesión.
-- `o2cloud quota` — cuota de almacenamiento.
-- `o2cloud ls [RUTA]` — lista carpetas y archivos.
-- `o2cloud tree [RUTA]` — árbol de carpetas.
-- `o2cloud stat RUTA` — detalle de un archivo (id o ruta).
-- `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
-- `o2cloud download REMOTO... --to LOCAL` — descarga archivos (streaming).
-- `o2cloud mkdir REMOTO` — crea una carpeta.
-- `o2cloud mv ORIGEN DESTINO` — mueve un elemento a una carpeta.
-- `o2cloud cp ORIGEN DESTINO` — copia server-side **(no disponible: protocolo sin confirmar)**.
-- `o2cloud rm REMOTO [--permanent] [-y]` — elimina (papelera por defecto).
+**CLI** (`o2cloud`)
 
-No implementado todavía: login asistido por navegador, `tree`, sync, FUSE.
+- `login` (WebView embebida, navegador del sistema o importar cookie), `logout`
+- `status`, `quota`
+- `ls [RUTA]`, `tree [RUTA]`, `stat REMOTO`
+- `mkdir REMOTO`
+- `upload LOCAL... --to CARPETA` (streaming)
+- `download REMOTO... --to LOCAL` (streaming, `.part` + rename atómico)
+- `mv ORIGEN DESTINO` (server-side)
+- `rm REMOTO [--permanent] [-y]` (papelera por defecto, con confirmación)
+- opciones globales `--json`, `--verbose`, `--quiet`, `--profile`
+- `cp ORIGEN DESTINO` — *no disponible todavía* (protocolo sin confirmar)
+
+**GUI nativa** (`--features gui`)
+
+- explorador: crear/subir/descargar/mover/borrar archivos **y carpetas**
+- **papelera**: listar y vaciar (con confirmación)
+- cuenta (estado + cuota) y sesión (login/logout)
+- diálogos de archivo nativos, **progreso** de transferencias y
+  **auto-refresco** tras cada acción
+
+Pendiente: `cp` server-side, restaurar de papelera, `sync`, FUSE.
 Ver `docs/implementation-plan.md`.
 
 ## Requisitos
@@ -36,6 +44,8 @@ Ver `docs/implementation-plan.md`.
 ## Instalación
 
 ```bash
+git clone https://github.com/dekimus/O2Cloud-RS
+cd O2Cloud-RS
 cargo build --release
 ./target/release/o2cloud --help
 ```
@@ -179,10 +189,13 @@ cargo run --release --features gui,webview --bin o2cloud-gui
 
 ## Seguridad
 
-- TLS siempre verificado (rustls).
-- Secretos solo en keyring o `O2CLOUD_*`; nunca en logs ni archivos.
-- Nunca se imprimen cookies, `validationKey` ni URLs firmadas.
-- Descargas y subidas (futuras) siempre en streaming.
+- TLS siempre verificado (rustls); sin `unsafe`, sin shell ni `eval`.
+- Secretos solo en el keyring o `O2CLOUD_*`; nunca en logs ni archivos.
+- Nunca se imprimen cookies, `validationKey` ni URLs firmadas (se redactan).
+- Subidas y descargas en **streaming** (sin cargar el archivo en memoria).
+- Descarga restringida al mismo host/esquema (anti-SSRF) y saneado de nombres.
+
+Detalle completo en `SECURITY.md` y `docs/security-review.md`.
 
 ## Documentación
 
