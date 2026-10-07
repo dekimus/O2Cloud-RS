@@ -102,7 +102,11 @@ iteración.
 ## Fase 11 — Tests
 
 - [x] Unitarios y mock HTTP para lectura, subida, descarga y mutaciones.
-- [ ] Ampliar cobertura de casos límite cuando se confirmen más endpoints.
+- [x] Casos límite: HTTP 400 (SAPI y no-JSON), cuota SAPI (`QUO-*`),
+  seguridad SAPI (`SEC-*`), sesión expirada, archivo vacío, archivos grandes
+  (streaming de 3 MiB en subida y descarga) y fallo de red en subida.
+- [x] Tests live **ignorados** y con guarda `O2CLOUD_LIVE_TESTS`/`O2CLOUD_COOKIE`
+  (solo lectura; nunca por defecto).
 
 ## Fase 12 — Documentación
 
@@ -115,6 +119,7 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. Confirmar `mv` (add-item/remove-item) y el borrado recursivo con tráfico real.
+1. Confirmar `mv` (add-item/remove-item) y el borrado recursivo con tráfico real
+   (requiere una sesión válida; usar `O2CLOUD_COOKIE`).
 2. Extender la `WebView` a macOS/Windows (en Linux ya está tras la feature `webview`).
-3. Ampliar tests de casos límite cuando se confirmen más endpoints.
+3. Paginación de listados si se confirma el parámetro de continuación del flujo web.

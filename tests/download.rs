@@ -18,6 +18,10 @@ fn client(base_url: &str) -> O2CloudClient {
 }
 
 async fn mount_metadata(server: &MockServer) {
+    mount_metadata_for(server, "a.txt", CONTENT.len() as u64, "xyz").await;
+}
+
+async fn mount_metadata_for(server: &MockServer, name: &str, size: u64, key: &str) {
     // Listado sparse (para resolver el mediatype del id).
     Mock::given(method("GET"))
         .and(path("/sapi/media"))
@@ -34,8 +38,8 @@ async fn mount_metadata(server: &MockServer) {
         .and(query_param("action", "get"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "data": { "files": [ {
-                "id": "100", "name": "a.txt", "size": CONTENT.len(),
-                "url": "/sapi/download/file?action=get&k=xyz"
+                "id": "100", "name": name, "size": size,
+                "url": format!("/sapi/download/file?action=get&k={key}")
             } ] }
         })))
         .mount(server)
@@ -132,4 +136,47 @@ async fn download_server_error_leaves_no_file() {
     assert!(matches!(err, Error::Server(_)), "got {err:?}");
     assert!(!dir.path().join("a.txt").exists());
     assert!(!dir.path().join("a.txt.part").exists());
+}
+
+#[tokio::test]
+async fn download_empty_file() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let server = MockServer::start().await;
+    mount_metadata_for(&server, "vacio.bin", 0, "empty").await;
+    Mock::given(method("GET"))
+        .and(path("/sapi/download/file"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(Vec::<u8>::new()))
+        .mount(&server)
+        .await;
+
+    let outcome = service::download(&client(&server.uri()), "100", dir.path(), false, &options())
+        .await
+        .unwrap();
+    assert_eq!(outcome.size, 0);
+    assert_eq!(std::fs::read(dir.path().join("vacio.bin")).unwrap(), b"");
+    assert!(!dir.path().join("vacio.bin.part").exists());
+}
+
+#[tokio::test]
+async fn download_large_file_streams_integrally() {
+    let dir = tempfile::tempdir().unwrap();
+    let content = vec![0x42_u8; 3 * 1024 * 1024]; // 3 MiB
+
+    let server = MockServer::start().await;
+    mount_metadata_for(&server, "grande.bin", content.len() as u64, "big").await;
+    Mock::given(method("GET"))
+        .and(path("/sapi/download/file"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(content.clone()))
+        .mount(&server)
+        .await;
+
+    let outcome = service::download(&client(&server.uri()), "100", dir.path(), false, &options())
+        .await
+        .unwrap();
+    assert_eq!(outcome.size, content.len() as u64);
+    assert_eq!(
+        std::fs::read(dir.path().join("grande.bin")).unwrap(),
+        content
+    );
 }

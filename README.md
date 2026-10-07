@@ -174,8 +174,13 @@ cargo clippy --all-targets -- -D warnings
 ```
 
 Los tests usan un backend mockeado (`wiremock`); no requieren red ni
-credenciales. Las pruebas live son manuales y requieren
-`O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE=...`.
+credenciales. Las pruebas live son manuales, están ignoradas por defecto y
+requieren una sesión real:
+
+```bash
+O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE='JSESSIONID=…; validationKey=…' \
+  cargo test --test live -- --ignored --nocapture
+```
 
 ## Licencia
 
