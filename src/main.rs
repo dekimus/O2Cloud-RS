@@ -8,7 +8,8 @@ use o2cloud::cli::{Cli, Command};
 use o2cloud::config::AppConfig;
 use o2cloud::error::{Error, Result};
 use o2cloud::output::{
-    print_downloads, print_listing, print_media, print_quota, print_status, print_uploads, Output,
+    print_downloads, print_listing, print_media, print_quota, print_status, print_tree,
+    print_uploads, Output,
 };
 use o2cloud::{service, O2CloudClient, Session};
 use serde_json::json;
@@ -92,6 +93,18 @@ async fn run(cli: &Cli, output: Output) -> Result<()> {
             output.success(&listing);
             if !output.is_json() {
                 print_listing(&listing);
+            }
+            Ok(())
+        }
+
+        Command::Tree { remote } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+            let remote = remote.as_deref().unwrap_or("/");
+            let tree = service::tree(&client, remote).await?;
+            output.success(&tree);
+            if !output.is_json() {
+                print_tree(&tree);
             }
             Ok(())
         }

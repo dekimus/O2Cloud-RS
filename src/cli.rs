@@ -58,6 +58,12 @@ pub enum Command {
         remote: Option<String>,
     },
 
+    /// Muestra el árbol de carpetas.
+    Tree {
+        /// Ruta remota raíz (por defecto, la raíz de la cuenta).
+        remote: Option<String>,
+    },
+
     /// Muestra el detalle de un archivo remoto (id o ruta).
     Stat {
         /// Id numérico o ruta del archivo.

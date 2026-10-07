@@ -6,6 +6,7 @@ mod ls;
 mod quota;
 mod stat;
 mod status;
+mod tree;
 mod upload;
 
 pub use download::{download, DownloadOptions, DownloadOutcome};
@@ -17,6 +18,7 @@ pub use ls::{list, Listing};
 pub use quota::quota;
 pub use stat::stat;
 pub use status::{status, StatusInfo};
+pub use tree::{tree, Tree, TreeNode};
 pub use upload::{upload, UploadOptions, UploadOutcome};
 
 use crate::api::client::O2CloudClient;

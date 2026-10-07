@@ -64,7 +64,7 @@ src/
     browser.rs         login asistido por navegador (BrowserOpener)
   service/
     mod.rs             resolución de rutas remotas, identidad
-    status.rs quota.rs ls.rs stat.rs upload.rs download.rs files.rs
+    status.rs quota.rs ls.rs tree.rs stat.rs upload.rs download.rs files.rs
 ```
 
 ## 4. Cliente SAPI (`O2CloudClient`)

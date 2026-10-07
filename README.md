@@ -15,6 +15,7 @@ en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
 - `o2cloud status` — estado de la sesión.
 - `o2cloud quota` — cuota de almacenamiento.
 - `o2cloud ls [RUTA]` — lista carpetas y archivos.
+- `o2cloud tree [RUTA]` — árbol de carpetas.
 - `o2cloud stat RUTA` — detalle de un archivo (id o ruta).
 - `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
 - `o2cloud download REMOTO... --to LOCAL` — descarga archivos (streaming).
@@ -81,6 +82,8 @@ o2cloud status
 o2cloud quota
 o2cloud ls
 o2cloud ls /fotos
+o2cloud tree
+o2cloud tree /fotos
 o2cloud stat 1195003130
 o2cloud stat /fotos/imagen.jpg
 o2cloud upload ./informe.pdf --to /documentos

@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::api::models::{MediaItem, Quota};
 use crate::error::Error;
-use crate::service::{DownloadOutcome, Listing, StatusInfo, UploadOutcome};
+use crate::service::{DownloadOutcome, Listing, StatusInfo, Tree, TreeNode, UploadOutcome};
 use crate::util::format_bytes;
 
 /// Renderizador de salida según el modo (`--json` o humano).
@@ -151,5 +151,31 @@ pub fn print_downloads(outcomes: &[DownloadOutcome]) {
             outcome.path,
             format_bytes(i64::try_from(outcome.size).unwrap_or(i64::MAX))
         );
+    }
+}
+
+/// Imprime el árbol de carpetas en modo humano.
+pub fn print_tree(tree: &Tree) {
+    if tree.root.name == "/" {
+        println!("📁 /");
+    } else {
+        println!("📁 {}/", tree.root.name);
+    }
+    print_tree_children(&tree.root.children, "");
+    println!();
+    println!("({} carpetas)", tree.folder_count);
+    if !tree.hierarchical {
+        println!("(nota: el servidor no devolvió jerarquía; lista plana)");
+    }
+}
+
+fn print_tree_children(children: &[TreeNode], prefix: &str) {
+    let count = children.len();
+    for (index, child) in children.iter().enumerate() {
+        let last = index + 1 == count;
+        let connector = if last { "└── " } else { "├── " };
+        println!("{prefix}{connector}📁 {}/", child.name);
+        let child_prefix = format!("{prefix}{}", if last { "    " } else { "│   " });
+        print_tree_children(&child.children, &child_prefix);
     }
 }

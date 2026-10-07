@@ -50,13 +50,13 @@ iteración.
 - [x] `ls [REMOTE]` (carpetas + media + detalle para nombres).
 - [x] `stat REMOTE` (detalle de un archivo).
 
-## Fase 6 — CLI ✅ (parcial)
+## Fase 6 — CLI ✅
 
-- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`, `upload`,
-  `download`, `mkdir`, `cp`, `mv`, `rm`.
+- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `tree`, `stat`,
+  `upload`, `download`, `mkdir`, `cp`, `mv`, `rm`.
 - [x] Flags globales `--json`, `--verbose`, `--quiet`, `--profile`.
 - [x] `--json`: stdout solo JSON, logs a stderr, sin confirmación.
-- [ ] `tree` (fase posterior).
+- [x] `tree` (jerarquía de carpetas vía `parentid`, con fallback plano).
 
 ## Fase 7 — Upload ✅
 
@@ -112,6 +112,6 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. `tree` en la CLI.
-2. Confirmar `mv` (add-item/remove-item) con tráfico real.
-3. WebView embebida opcional para captura automática de la sesión.
+1. Confirmar `mv` (add-item/remove-item) y el borrado recursivo con tráfico real.
+2. WebView embebida opcional para captura automática de la sesión.
+3. Ampliar tests de casos límite cuando se confirmen más endpoints.
