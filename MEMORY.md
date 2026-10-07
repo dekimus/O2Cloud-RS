@@ -341,9 +341,39 @@ Seguimos la variante **web** en todos los casos. El detalle de carpeta incluye
 
 ### Nota sobre listado por carpeta
 
-El listado web de media es **a nivel de cuenta** (sin asociación fiable
-archivo→carpeta). El parámetro `?folder=<id>` se reenvía pero su
-comportamiento de filtrado no está confirmado al 100%.
+El listado sparse (`GET /media?action=get`) es a nivel de cuenta. Pero el
+**detalle** (`POST /media/file?action=get`) incluye `folder` (carpeta
+contenedora; None/ausente = raíz), así que la asociación archivo→carpeta **sí**
+está disponible filtrando el detalle (confirmado live).
+
+## Validación live (2026-10-07)
+
+Contrastado contra una cuenta real (sesión web). Correcciones importantes
+respecto a lo deducido de las implementaciones de referencia:
+
+-   **mkdir**: cuerpo `{"data":{"name"[, "parentid"]}}` (el campo `parent` que
+    usa el cliente Python es **ignorado**); respuesta real
+    `{"data":{"folder":{"id":…},"success":"…"}}`.
+-   **detalle media** `POST /media/file?action=get`: devuelve el detalle de
+    **TODOS** los archivos (ignora el filtro de `id`); filtrar en cliente.
+    `creationdate`/`modificationdate`/`uploaded` son **epoch-ms enteros**
+    (no cadena/bool); incluye `folder`; sin `contenttype`.
+-   **listado de carpetas**: trae `parentid` (a veces omitido en primer nivel).
+-   **move** (`mv`): `POST /media/folder?action=add-item` con
+    `{"data":{"folderid":<dest>,"items":[<item>]}}` (con `id` da `COM-1011`).
+    Mueve el elemento; el detalle pasa a exponer `folder`.
+-   **borrado**:
+    -   papelera media: `POST /media?action=softdelete&id=<id>`
+        ("Item successfully moved to trash");
+    -   permanente media: `POST /media/file?action=delete` body
+        `{"data":{"files":[id]}}` ("Files removed successfully");
+    -   papelera carpeta: `POST /media/folder?action=softdelete&id=<id>`
+        ("Folders have been softdeleted");
+    -   permanente carpeta: `POST /media/folder?action=delete` body
+        `{"data":{"folders":[id]}}`.
+    El `media/file?action=softdelete` **con body es un no-op**.
+-   **subida**: `success` es una **cadena** ("Media uploaded successfully").
+-   **cp/copy**: **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados).
 
 ## Decisiones de arquitectura
 

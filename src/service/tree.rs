@@ -45,7 +45,7 @@ pub async fn tree(client: &O2CloudClient, remote: &str) -> Result<Tree> {
 
     let hierarchical = folders.iter().any(|folder| folder.parentid.is_some());
     let root_node = if hierarchical {
-        build_node(root, &folders, &mut HashSet::new())
+        build_node(root, &folders, &root.id, &mut HashSet::new())
     } else {
         flat_node(root, &folders)
     };
@@ -60,12 +60,20 @@ pub async fn tree(client: &O2CloudClient, remote: &str) -> Result<Tree> {
 }
 
 /// Construye recursivamente un nodo a partir de sus hijos (`parentid`).
-fn build_node(folder: &Folder, all: &[Folder], seen: &mut HashSet<Id>) -> TreeNode {
+///
+/// Las carpetas sin `parentid` se consideran hijas de la raíz (el backend las
+/// omite a veces en el primer nivel).
+fn build_node(folder: &Folder, all: &[Folder], root_id: &Id, seen: &mut HashSet<Id>) -> TreeNode {
     seen.insert(folder.id.clone());
     let mut children = Vec::new();
     for candidate in all {
-        if candidate.parentid.as_ref() == Some(&folder.id) && !seen.contains(&candidate.id) {
-            children.push(build_node(candidate, all, seen));
+        if seen.contains(&candidate.id) {
+            continue;
+        }
+        let is_child = candidate.parentid.as_ref() == Some(&folder.id)
+            || (folder.id == *root_id && candidate.parentid.is_none());
+        if is_child {
+            children.push(build_node(candidate, all, root_id, seen));
         }
     }
     children.sort_by(|a, b| a.name.cmp(&b.name));
@@ -128,7 +136,7 @@ mod tests {
             folder(3, "2024", Some(2)),
             folder(4, "documentos", Some(1)),
         ];
-        let node = build_node(&folders[0], &folders, &mut HashSet::new());
+        let node = build_node(&folders[0], &folders, &folders[0].id, &mut HashSet::new());
         assert_eq!(node.name, "/");
         assert_eq!(node.children.len(), 2);
         // Orden alfabético: documentos, fotos.
@@ -136,6 +144,21 @@ mod tests {
         assert_eq!(node.children[1].name, "fotos");
         assert_eq!(node.children[1].children[0].name, "2024");
         assert_eq!(count_nodes(&node), 4);
+    }
+
+    #[test]
+    fn treats_parentless_folders_as_root_children() {
+        // Carpeta de primer nivel sin `parentid` (el backend a veces lo omite).
+        let folders = vec![
+            folder(1, "/", None),
+            folder(2, "sin_parent", None),
+            folder(3, "con_parent", Some(1)),
+        ];
+        let node = build_node(&folders[0], &folders, &folders[0].id, &mut HashSet::new());
+        assert_eq!(node.children.len(), 2);
+        let names: Vec<_> = node.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(names.contains(&"sin_parent"));
+        assert!(names.contains(&"con_parent"));
     }
 
     #[test]

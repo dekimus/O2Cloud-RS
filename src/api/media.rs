@@ -1,6 +1,6 @@
 //! Operaciones de media: listado y detalle.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use serde::Deserialize;
 
@@ -46,23 +46,23 @@ impl MediaApi<'_> {
 
     /// Obtiene el detalle completo de un único elemento.
     ///
-    /// `POST /sapi/media/<type>?action=get` con `{"data":{"files":[{"id":…}]}}`.
+    /// `POST /sapi/media/<type>?action=get`. **Nota**: el endpoint real
+    /// devuelve el detalle de **todos** los elementos del tipo (ignora el
+    /// filtro de `id`), así que aquí se filtra por id en cliente.
     pub async fn detail(&self, id: &Id, mediatype: &str) -> Result<MediaItem> {
-        let resource = type_resource(mediatype);
-        let path = format!("/media/{resource}");
-        let body = serde_json::json!({ "data": { "files": [{ "id": id.as_str() }] } });
-        let resp: DetailResponse = self
-            .client
-            .post_read(&path, &[("action", "get")], Some(&body))
+        let items = self
+            .detail_many(std::slice::from_ref(id), mediatype)
             .await?;
-        resp.files
+        items
             .into_iter()
-            .next()
-            .ok_or_else(|| Error::InvalidResponse(format!("detail for {id} returned no file")))
+            .find(|item| &item.id == id)
+            .ok_or_else(|| Error::NotFound(format!("media '{id}' not found")))
     }
 
-    /// Obtiene el detalle de varios elementos del **mismo** `mediatype` en una
-    /// sola petición (extiende el detalle de un id, confirmado, a N ids).
+    /// Obtiene el detalle de varios elementos del **mismo** `mediatype`.
+    ///
+    /// Como el endpoint devuelve todos los del tipo, se filtran los ids
+    /// pedidos en cliente.
     pub async fn detail_many(&self, ids: &[Id], mediatype: &str) -> Result<Vec<MediaItem>> {
         if ids.is_empty() {
             return Ok(Vec::new());
@@ -78,7 +78,12 @@ impl MediaApi<'_> {
             .client
             .post_read(&path, &[("action", "get")], Some(&body))
             .await?;
-        Ok(resp.files)
+        let wanted: HashSet<Id> = ids.iter().cloned().collect();
+        Ok(resp
+            .files
+            .into_iter()
+            .filter(|item| wanted.contains(&item.id))
+            .collect())
     }
 
     /// Resuelve el detalle de una lista de elementos sparse, agrupando por
@@ -118,33 +123,30 @@ impl MediaApi<'_> {
     }
 
     /// Borra un elemento de media.
-    /// `POST /sapi/media/<type>?action={delete,softdelete}` con
-    /// `{"data":{"files":[id]}}`. `permanent=false` usa la papelera.
-    pub async fn delete(&self, id: &Id, permanent: bool, mediatype: &str) -> Result<()> {
-        let resource = type_resource(mediatype);
-        let action = if permanent { "delete" } else { "softdelete" };
-        let path = format!("/media/{resource}");
-        let body = serde_json::json!({ "data": { "files": [id.as_str()] } });
-        let _: serde_json::Value = self
-            .client
-            .post(&path, &[("action", action)], Some(&body))
-            .await?;
-        Ok(())
-    }
-
-    /// Copia server-side. `POST /sapi/media/file?action=copy`.
     ///
-    /// `folder_id` es la carpeta destino (opcional).
-    pub async fn copy(&self, id: &Id, folder_id: Option<&Id>) -> Result<()> {
-        let mut data = serde_json::json!({ "files": [id.as_str()] });
-        if let Some(folder) = folder_id {
-            data["folder"] = serde_json::json!(folder.as_str());
+    /// Confirmado contra el servicio real:
+    /// - permanente: `POST /media/<type>?action=delete` con
+    ///   `{"data":{"files":[id]}}` → "Files removed successfully";
+    /// - papelera: `POST /media?action=softdelete&id=<id>` (query, sin body).
+    pub async fn delete(&self, id: &Id, permanent: bool, mediatype: &str) -> Result<()> {
+        if permanent {
+            let resource = type_resource(mediatype);
+            let path = format!("/media/{resource}");
+            let body = serde_json::json!({ "data": { "files": [id.as_str()] } });
+            let _: serde_json::Value = self
+                .client
+                .post(&path, &[("action", "delete")], Some(&body))
+                .await?;
+        } else {
+            let _: serde_json::Value = self
+                .client
+                .post(
+                    "/media",
+                    &[("action", "softdelete"), ("id", id.as_str())],
+                    None,
+                )
+                .await?;
         }
-        let body = serde_json::json!({ "data": data });
-        let _: serde_json::Value = self
-            .client
-            .post("/media/file", &[("action", "copy")], Some(&body))
-            .await?;
         Ok(())
     }
 }

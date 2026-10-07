@@ -82,14 +82,18 @@ iteración.
 - [x] tests: streaming + rename, sin parcial, conflict sin `--force`, overwrite
   con `--force`, error 500 sin fichero.
 
-## Fase 9 — Operaciones de archivos ✅
+## Fase 9 — Operaciones de archivos ✅ (validado live 2026-10-07)
 
-- [x] `mkdir` → `POST /sapi/media/folder?action=save`.
-- [x] `cp` (server-side) → `POST /sapi/media/file?action=copy`.
-- [x] `mv` → `POST /sapi/media/folder?action=add-item` (**PARTIAL**, ver protocolo).
-- [x] `rm` (papelera) → `media/file?action=softdelete` / `media/folder?action=softdelete`.
-- [x] `rm --permanent` → `action=delete`.
-- [x] tests de forma de las peticiones (save/copy/add-item/delete/softdelete).
+- [x] `mkdir` → `POST /sapi/media/folder?action=save` con `parentid` (el campo
+  `parent` del cliente Python es ignorado); respuesta `{folder:{id},success}`.
+- [x] `mv` → `POST /sapi/media/folder?action=add-item` con
+  `{"data":{"folderid":…,"items":[id]}}` (confirmado live).
+- [x] `rm` (papelera) → `media?action=softdelete&id=` /
+  `media/folder?action=softdelete&id=` (query).
+- [x] `rm --permanent` → `media/file?action=delete` body `files:[id]` /
+  `media/folder?action=delete` body `folders:[id]`.
+- [ ] `cp` (server-side) → **UNCONFIRMED** (`COM-1011`); devuelve error claro.
+- [x] tests de forma de las peticiones (save/add-item/delete/softdelete).
 
 ## Fase 10 — Seguridad y UX ✅
 
@@ -119,7 +123,6 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. Confirmar `mv` (add-item/remove-item) y el borrado recursivo con tráfico real
-   (requiere una sesión válida; usar `O2CLOUD_COOKIE`).
+1. Confirmar el cuerpo de `cp` (copy) y el borrado recursivo de carpetas.
 2. Extender la `WebView` a macOS/Windows (en Linux ya está tras la feature `webview`).
 3. Paginación de listados si se confirma el parámetro de continuación del flujo web.

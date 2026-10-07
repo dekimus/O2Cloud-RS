@@ -143,25 +143,22 @@ devuelven el objeto directamente sin envelope; hay que tolerarlo.
 | Suscripción | GET | `/sapi/subscription?action=get` | — | `data` | AGENTS | CONFIRMED |
 | Plan | GET | `/sapi/subscription/plan?action=get` | — | `data.plans[]` | Python + AGENTS | CONFIRMED |
 | Historial | GET | `/sapi/subscription/history?action=get` | — | `data` | AGENTS | CONFIRMED |
-| Listar carpetas | POST | `/sapi/media/folder?action=get` | body opcional | `data.folders[]{name,id,status,magic,offline,creationdate,date}` | Python + Rust | CONFIRMED |
-| Crear/renombrar carpeta | POST | `/sapi/media/folder?action=save` | `{data:{name[,parent]}}` | carpeta / `{id}` | Python + Rust (cuerpos difieren) | CONFIRMED |
-| Borrar carpeta | POST | `/sapi/media/folder?action=delete` | `{data:{folders:[id]}}` | envelope | Python | CONFIRMED |
-| Papelera carpeta | POST | `/sapi/media/folder?action=softdelete` | `{data:{folders:[id]}}` | envelope | Python (+ Rust usa `?id=`) | CONFIRMED |
+| Listar carpetas | POST | `/sapi/media/folder?action=get` | body opcional | `data.folders[]{name,id,status,magic,offline,creationdate,date[,parentid]}` | Live + Python + Rust | CONFIRMED |
+| Crear/renombrar carpeta | POST | `/sapi/media/folder?action=save` | `{data:{name[,parentid]}}` | `{data:{folder:{id},success}}` | Live | CONFIRMED |
+| Borrar carpeta | POST | `/sapi/media/folder?action=delete` | `{data:{folders:[id]}}` | `data:null` | Live | CONFIRMED |
+| Papelera carpeta | POST | `/sapi/media/folder?action=softdelete&id=<id>` | query, sin body | `"Folders have been softdeleted"` | Live | CONFIRMED |
 | ZIP carpeta | POST | `/sapi/media/folder?action=zip` | TBD | enlace | AGENTS | UNCONFIRMED |
-| Mover item (add) | POST | `/sapi/media/folder?action=add-item` | `{data:{id,items:[id]}}` | envelope | Python (body supuesto) | PARTIAL |
-| Mover item (remove) | POST | `/sapi/media/folder?action=remove-item` | `{data:{id,items:[id]}}` | envelope | Python (body supuesto) | PARTIAL |
-| Listar media (sparse) | GET | `/sapi/media?action=get&limit=N[&folder=id]` | — | `data{media[],more}` | Python + AGENTS | CONFIRMED |
-| Listar media (fields) | POST | `/sapi/media?action=get&limit&offset` | `{data:{fields:[...]}}` | `data.media[]` | Rust | OBSERVED |
-| Detalle media | POST | `/sapi/media/file?action=get` | `{data:{files:[{id}]}}` | `data.files[0]` | Python + AGENTS | CONFIRMED |
+| Mover item | POST | `/sapi/media/folder?action=add-item` | `{data:{folderid,items:[id]}}` | `data:null` (mueve; el detalle expone `folder`) | Live | CONFIRMED |
+| Mover item (remove) | POST | `/sapi/media/folder?action=remove-item` | probable `{folderid,items}` | envelope | — | UNCONFIRMED |
+| Listar media (sparse) | GET | `/sapi/media?action=get&limit=N` | — | `data{media[],more}` | Live + Python | CONFIRMED |
+| Detalle media | POST | `/sapi/media/file?action=get` | cualquiera (ignora el filtro de id) | `data.files[]` (**TODOS**; filtrar en cliente) | Live | CONFIRMED |
 | Detalle por tipo | POST | `/sapi/media/{picture,video,audio}?action=get` | idem | idem | Python | OBSERVED |
-| Subida (multipart) | POST | `upload…/sapi/upload?action=save` | multipart `data`+`file` | `{success,id,etag,status,type}` | Python live + AGENTS | CONFIRMED |
-| Subida (2 pasos) | POST | `/sapi/upload/file?action=save-metadata` + `action=save` | octet-stream | `{id}` | Rust | OBSERVED |
-| Estado validación | POST | `/sapi/media?action=get-validation-status` | `{data:{ids:[{id}]}}` | `data.ids[]{id,status}` | Python + Rust + AGENTS | CONFIRMED |
-| Descarga | GET | `/sapi/download/file?action=get&k=...&node=...` | — | bytes | Python + Rust | CONFIRMED |
-| Borrar media (permanente) | POST | `/sapi/media/file?action=delete` | `{data:{files:[id]}}` | envelope | Python + AGENTS | CONFIRMED |
-| Papelera media | POST | `/sapi/media/file?action=softdelete` | `{data:{files:[id]}}` | envelope | Python + AGENTS | CONFIRMED |
-| Borrar media (query) | POST | `/sapi/media?action=softdelete&id=<id>` | — | envelope | Rust | OBSERVED |
-| Copiar (server-side) | POST | `/sapi/media/file?action=copy` | `{data:{files:[id][,folder]}}` | item | Python + AGENTS | CONFIRMED |
+| Subida (multipart) | POST | `upload…/sapi/upload?action=save` | multipart `data`+`file` | `{success:"…",id,etag,status,type}` | Live + Python | CONFIRMED |
+| Estado validación | POST | `/sapi/media?action=get-validation-status` | `{data:{ids:[{id}]}}` | `data.ids[]{id,status}` | Live + Python | CONFIRMED |
+| Descarga | GET | `/sapi/download/file?action=get&k=…&node=…` | — | bytes | Live + Python | CONFIRMED |
+| Borrar media (permanente) | POST | `/sapi/media/file?action=delete` | `{data:{files:[id]}}` | `"Files removed successfully"` | Live | CONFIRMED |
+| Papelera media | POST | `/sapi/media?action=softdelete&id=<id>` | query, sin body | `"Item successfully moved to trash"` | Live | CONFIRMED |
+| Copiar (server-side) | POST | `/sapi/media/file?action=copy` | TBD (`COM-1011` con todos los probados) | — | Live | UNCONFIRMED |
 | Revisión get | POST | `/sapi/media/revision?action=get` | TBD | TBD | AGENTS | UNCONFIRMED |
 | Revisión restore | POST | `/sapi/media/revision?action=restore` | TBD | TBD | AGENTS | UNCONFIRMED |
 | Miniatura | GET | `/sapi/download/thumbnail?action=get&fdoid=<id>` | — | bytes | Python + AGENTS | OBSERVED |
@@ -228,22 +225,28 @@ Response `data{media[], more}`. Elementos sparse: `{id, date, mediatype,
 status, userid}`. `id` es **string**. El parámetro opcional `folder=<id>` se
 reenvía (comportamiento de filtrado no confirmado al 100%).
 
-### 7.5 Detalle media — CONFIRMED
+### 7.5 Detalle media — CONFIRMED (validado live 2026-10-07)
 
 ```
 POST https://cloud.o2online.es/sapi/media/file?action=get&validationkey=<vk>
-{"data":{"files":[{"id":"123"}]}}
+{"data":{"files":[{"id":"123"}]}}   # el id es IGNORADO por el servidor
 ```
 
-Response `data.files[0]`:
+**Confirmado en vivo**: el endpoint devuelve el detalle de **todos** los
+archivos (ignora el filtro de `id`); el cliente debe filtrar por id en local.
+
+Campos por archivo (valores reales observados):
 
 ```json
 {
-  "id": "123", "url": "/sapi/download/file?action=get&k=<sig>&node=1",
-  "date": 1751441234567, "creationdate": "20260722T101010Z",
-  "modificationdate": "20260722T101010Z", "uploaded": true,
-  "size": 12345, "name": "foto.jpg", "mediatype": "picture",
-  "status": "U", "etag": "...", "softdeleted": false
+  "id": "1501990478", "date": 1791387814407,
+  "creationdate": 1791387808000,      // epoch-ms (entero), NO cadena
+  "modificationdate": 1791387808000,  // epoch-ms (entero)
+  "uploaded": 1791387808296,          // epoch-ms (entero), NO bool
+  "size": 1443, "name": "o2upload.txt", "mediatype": "file",
+  "status": "U", "etag": "…", "softdeleted": false,
+  "folder": 34562759,                 // carpeta contenedora (None = raíz)
+  "url": "/sapi/download/file?action=get&k=…&node=…"
 }
 ```
 
@@ -271,16 +274,45 @@ Response `data.files[0]`:
 | Auth | OIDC web: `JSESSIONID`+`validationKey` (sin `Authorization`) | Mobile Connect + `Authorization: oauth` + silent refresh | Seguimos el flujo web |
 | Listar media | `GET` sparse + detalle aparte | `POST` con `fields` (incl. `url`,`folderid`) | Seguimos `GET` sparse; el `POST` con `fields` queda OBSERVED |
 | Subida | multipart `data`+`file` a `/sapi/upload?action=save` | 2 pasos `save-metadata` + `save` (octet-stream) | Seguimos multipart (CONFIRMED live) |
-| Borrar media | `media/file?action=delete` body `files:[id]` | `media?action=softdelete&id=<id>` | Seguimos `media/file` + body |
-| Borrar carpeta | body `folders:[id]` | query `id=<id>` | Seguimos body |
-| mkdir body | `{name, parent}` | `{name, parentid, magic, creationdate, modificationdate}` | Ambas usan `action=save`; cuerpo a confirmar en live |
+| Borrar media | `media/file?action=delete` body `files:[id]` (permanente) y `media/file?action=softdelete` body (papelera, **no-op real**) | `media?action=softdelete&id=<id>` (papelera) | Papelera = **query `id`**; permanente = **body `files:[id]`** (validado live) |
+| Borrar carpeta | body `folders:[id]` | query `id=<id>` | Permanente = **body `folders:[id]`**; papelera = **query `id`** (validado live) |
+| mkdir body | `{name, parent}` (**`parent` ignorado**) | `{name, parentid, …}` | Usar **`parentid`**; respuesta real `{folder:{id},success}` (validado live) |
+| Mover item | `{id, items:[id]}` (**COM-1011**) | `add-item` | Usar **`{folderid, items:[id]}`** (validado live) |
+| Detalle media | `{"files":[{"id":…}]}`, toma `files[0]` | `POST /media?action=get` con `fields` | El endpoint devuelve **todos** los archivos; filtrar por id en cliente (validado live) |
+| Copiar | `media/file?action=copy` body `files:[id][,folder]` | — | **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados) |
 | Probe de sesión | `profile?action=get` | `profile/role?action=get` | Usamos `profile?action=get` |
 
-## 10. Áreas no confirmadas (no implementar sin captura live)
+## 10. Validación live (2026-10-07)
+
+Contrastado contra una cuenta real con sesión web válida. Correcciones
+respecto a lo deducido de las implementaciones de referencia:
+
+- **`mkdir`**: el cuerpo usa **`parentid`** (no `parent`, que se ignora) y la
+  respuesta es `{"data":{"folder":{"id":…},"success":"…"}}`.
+- **Detalle** `media/file?action=get`: devuelve **todos** los archivos (ignora
+  el id); `creationdate`/`modificationdate`/`uploaded` son **epoch-ms enteros**;
+  no hay `contenttype`; incluye **`folder`** (carpeta contenedora; ausente/null
+  = raíz).
+- **Listado de carpetas**: incluye `parentid` (a veces omitido en el primer
+  nivel).
+- **`move`**: `add-item` con **`{"data":{"folderid":…,"items":[id]}}`** mueve el
+  elemento y el detalle pasa a exponer `folder`.
+- **Borrado**: papelera de media = `POST /media?action=softdelete&id=<id>`;
+  papelera de carpeta = `POST /media/folder?action=softdelete&id=<id>`;
+  permanente de media = `POST /media/file?action=delete` body
+  `{"data":{"files":[id]}}`; permanente de carpeta =
+  `POST /media/folder?action=delete` body `{"data":{"folders":[id]}}`.
+  El `media/file?action=softdelete` **con body es un no-op**.
+- **Subida**: `success` llega como **cadena** ("Media uploaded successfully").
+- **`cp`/copy**: **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados).
+
+## 11. Áreas no confirmadas (no implementar sin captura live)
 
 - Búsqueda server-side (sin endpoint).
 - Shares, álbumes, labels.
 - Restore/empty exacto de papelera.
 - Parámetros de `export`/`zip`.
+- `cp`/copy server-side (cuerpo del endpoint desconocido; `COM-1011`).
+- `remove-item` y borrado recursivo de carpetas.
 - Forma exacta del exchange code→session del flujo web.
 - OAuth bearer / silent refresh del móvil.

@@ -165,16 +165,22 @@ pub struct MediaItem {
     pub size: Option<i64>,
     #[serde(default)]
     pub contenttype: Option<String>,
+    /// Puede ser epoch-ms (entero) o cadena compacta, según el endpoint.
     #[serde(default)]
-    pub creationdate: Option<String>,
+    pub creationdate: Option<serde_json::Value>,
+    /// Puede ser epoch-ms (entero) o cadena compacta, según el endpoint.
     #[serde(default)]
-    pub modificationdate: Option<String>,
+    pub modificationdate: Option<serde_json::Value>,
+    /// Epoch-ms de subida (entero), aunque podría venir como otro tipo.
     #[serde(default)]
-    pub uploaded: Option<bool>,
+    pub uploaded: Option<serde_json::Value>,
     #[serde(default)]
     pub softdeleted: Option<bool>,
     #[serde(default)]
     pub etag: Option<String>,
+    /// Carpeta contenedora (entero en el detalle real; a veces `folderid`).
+    #[serde(default, alias = "folderid")]
+    pub folder: Option<Id>,
     /// URL firmada de descarga. **Nunca se serializa** (secreto).
     #[serde(default, skip_serializing)]
     pub url: Option<String>,
@@ -190,11 +196,14 @@ pub struct MediaListing {
     pub more: bool,
 }
 
-/// Respuesta del endpoint de subida: `{success, id, etag, status, type}`.
+/// Respuesta del endpoint de subida.
+///
+/// Observado: `success` llega como cadena ("Media uploaded successfully"),
+/// aunque podría ser booleano; por eso es tolerante.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UploadResult {
     #[serde(default)]
-    pub success: bool,
+    pub success: serde_json::Value,
     #[serde(default)]
     pub id: Option<Id>,
     #[serde(default)]

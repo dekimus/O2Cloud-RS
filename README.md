@@ -20,8 +20,8 @@ en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
 - `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
 - `o2cloud download REMOTO... --to LOCAL` — descarga archivos (streaming).
 - `o2cloud mkdir REMOTO` — crea una carpeta.
-- `o2cloud cp ORIGEN DESTINO` — copia server-side.
-- `o2cloud mv ORIGEN DESTINO` — mueve (best-effort, ver protocolo).
+- `o2cloud mv ORIGEN DESTINO` — mueve un elemento a una carpeta.
+- `o2cloud cp ORIGEN DESTINO` — copia server-side **(no disponible: protocolo sin confirmar)**.
 - `o2cloud rm REMOTO [--permanent] [-y]` — elimina (papelera por defecto).
 
 No implementado todavía: login asistido por navegador, `tree`, sync, FUSE.

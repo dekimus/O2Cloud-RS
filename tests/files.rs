@@ -67,7 +67,7 @@ async fn mkdir_sends_save_with_parent() {
         .and(path("/sapi/media/folder"))
         .and(query_param("action", "save"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "data": { "id": 5, "name": "nueva" }
+            "data": { "folder": { "id": 5, "name": "nueva" }, "success": "Folder saved successfully" }
         })))
         .mount(&server)
         .await;
@@ -82,17 +82,18 @@ async fn mkdir_sends_save_with_parent() {
     let save = bodies(&requests, "/sapi/media/folder", "save");
     assert_eq!(save.len(), 1);
     assert!(save[0].contains("\"name\":\"nueva\""), "{}", save[0]);
-    assert!(save[0].contains("\"parent\":\"1\""), "{}", save[0]);
+    assert!(save[0].contains("\"parentid\":\"1\""), "{}", save[0]);
 }
 
 #[tokio::test]
-async fn remove_file_softdelete_by_id() {
+async fn remove_file_softdelete_uses_query_id() {
     let server = MockServer::start().await;
     mount_folder_list(&server, json!([{ "id": 1, "name": "/" }])).await;
     mount_media_resolution(&server).await;
     Mock::given(method("POST"))
-        .and(path("/sapi/media/file"))
+        .and(path("/sapi/media"))
         .and(query_param("action", "softdelete"))
+        .and(query_param("id", "100"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": {} })))
         .mount(&server)
         .await;
@@ -105,10 +106,15 @@ async fn remove_file_softdelete_by_id() {
         .await
         .unwrap();
 
+    // El mock solo responde 200 si la petición lleva action=softdelete&id=100.
     let requests = server.received_requests().await.unwrap();
-    let del = bodies(&requests, "/sapi/media/file", "softdelete");
-    assert_eq!(del.len(), 1);
-    assert!(del[0].contains("\"files\":[\"100\"]"), "{}", del[0]);
+    let matched = requests
+        .iter()
+        .filter(|r| {
+            r.url.path() == "/sapi/media" && r.url.query().is_some_and(|q| q.contains("softdelete"))
+        })
+        .count();
+    assert_eq!(matched, 1);
 }
 
 #[tokio::test]
@@ -141,6 +147,7 @@ async fn remove_folder_uses_folder_endpoint() {
     Mock::given(method("POST"))
         .and(path("/sapi/media/folder"))
         .and(query_param("action", "softdelete"))
+        .and(query_param("id", "100"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": {} })))
         .mount(&server)
         .await;
@@ -154,37 +161,29 @@ async fn remove_folder_uses_folder_endpoint() {
         .await
         .unwrap();
 
+    // El mock solo responde 200 con action=softdelete&id=100.
     let requests = server.received_requests().await.unwrap();
-    let del = bodies(&requests, "/sapi/media/folder", "softdelete");
-    assert_eq!(del.len(), 1);
-    assert!(del[0].contains("\"folders\":[\"100\"]"), "{}", del[0]);
+    let matched = requests
+        .iter()
+        .filter(|r| {
+            r.url.path() == "/sapi/media/folder"
+                && r.url.query().is_some_and(|q| q.contains("softdelete"))
+        })
+        .count();
+    assert_eq!(matched, 1);
 }
 
 #[tokio::test]
-async fn copy_sends_server_side_copy_with_folder() {
+async fn copy_reports_unconfirmed() {
+    // El endpoint de copia no está confirmado; `copy` devuelve un error claro
+    // y no envía ninguna petición.
     let server = MockServer::start().await;
-    mount_folder_list(
-        &server,
-        json!([{ "id": 1, "name": "/" }, { "id": 2, "name": "backup" }]),
-    )
-    .await;
-    mount_media_resolution(&server).await;
-    Mock::given(method("POST"))
-        .and(path("/sapi/media/file"))
-        .and(query_param("action", "copy"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": {} })))
-        .mount(&server)
-        .await;
-
-    service::copy(&client(&server.uri()), "100", "/backup")
+    let err = service::copy(&client(&server.uri()), "100", "/backup")
         .await
-        .unwrap();
-
+        .unwrap_err();
+    assert!(matches!(err, o2cloud::Error::Protocol(_)), "got {err:?}");
     let requests = server.received_requests().await.unwrap();
-    let copy = bodies(&requests, "/sapi/media/file", "copy");
-    assert_eq!(copy.len(), 1);
-    assert!(copy[0].contains("\"files\":[\"100\"]"), "{}", copy[0]);
-    assert!(copy[0].contains("\"folder\":\"2\""), "{}", copy[0]);
+    assert!(requests.is_empty(), "no debería enviar peticiones");
 }
 
 #[tokio::test]
@@ -210,6 +209,6 @@ async fn mv_sends_add_item() {
     let requests = server.received_requests().await.unwrap();
     let add = bodies(&requests, "/sapi/media/folder", "add-item");
     assert_eq!(add.len(), 1);
-    assert!(add[0].contains("\"id\":\"2\""), "{}", add[0]);
+    assert!(add[0].contains("\"folderid\":\"2\""), "{}", add[0]);
     assert!(add[0].contains("\"items\":[\"100\"]"), "{}", add[0]);
 }

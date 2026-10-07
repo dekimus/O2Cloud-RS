@@ -19,9 +19,17 @@ struct FoldersResponse {
     folders: Vec<Folder>,
 }
 
-/// Respuesta de creación: el objeto de carpeta (o al menos su `id`).
+/// Respuesta de creación: `{"folder":{"id":…}, "success":"…"}`.
 #[derive(Debug, Deserialize)]
-struct FolderCreated {
+struct FolderSaveResponse {
+    #[serde(default)]
+    folder: Option<FolderSaved>,
+    #[serde(default)]
+    id: Option<Id>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FolderSaved {
     id: Id,
 }
 
@@ -41,41 +49,64 @@ impl FoldersApi<'_> {
 
     /// Crea una carpeta. `POST /sapi/media/folder?action=save`.
     ///
-    /// El cuerpo incluye `parent` cuando se indica (forma observada en el flujo
-    /// web). Devuelve el id de la nueva carpeta.
+    /// El cuerpo incluye `parentid` cuando se indica (campo confirmado contra
+    /// el servicio real; `parent` era ignorado). La respuesta observada es
+    /// `{"folder":{"id":…},"success":"…"}`.
+    /// Devuelve el id de la nueva carpeta.
     pub async fn create(&self, name: &str, parent_id: Option<&Id>) -> Result<Id> {
         let mut inner = serde_json::json!({ "name": name });
         if let Some(parent) = parent_id {
-            inner["parent"] = serde_json::json!(parent.as_str());
+            inner["parentid"] = serde_json::json!(parent.as_str());
         }
         let body = serde_json::json!({ "data": inner });
-        let resp: FolderCreated = self
+        let resp: FolderSaveResponse = self
             .client
             .post_read("/media/folder", &[("action", "save")], Some(&body))
             .await?;
-        Ok(resp.id)
+        resp.folder
+            .map(|folder| folder.id)
+            .or(resp.id)
+            .ok_or_else(|| {
+                crate::error::Error::InvalidResponse("folder save response has no id".to_string())
+            })
     }
 
-    /// Borra una carpeta. `POST /sapi/media/folder?action={delete,softdelete}`.
+    /// Borra una carpeta.
     ///
-    /// `permanent=false` usa la papelera. El comportamiento recursivo sobre
-    /// carpetas no vacías no está confirmado y depende del backend.
+    /// Confirmado contra el servicio real:
+    /// - permanente: `POST /media/folder?action=delete` con
+    ///   `{"data":{"folders":[id]}}` (devuelve `data: null`);
+    /// - papelera: `POST /media/folder?action=softdelete&id=<id>` (query, sin
+    ///   body) → "Folders have been softdeleted".
     pub async fn delete(&self, id: &Id, permanent: bool) -> Result<()> {
-        let action = if permanent { "delete" } else { "softdelete" };
-        let body = serde_json::json!({ "data": { "folders": [id.as_str()] } });
-        let _: serde_json::Value = self
-            .client
-            .post("/media/folder", &[("action", action)], Some(&body))
-            .await?;
+        if permanent {
+            let body = serde_json::json!({ "data": { "folders": [id.as_str()] } });
+            let _: serde_json::Value = self
+                .client
+                .post("/media/folder", &[("action", "delete")], Some(&body))
+                .await?;
+        } else {
+            let _: serde_json::Value = self
+                .client
+                .post(
+                    "/media/folder",
+                    &[("action", "softdelete"), ("id", id.as_str())],
+                    None,
+                )
+                .await?;
+        }
         Ok(())
     }
 
-    /// Adjunta un item a una carpeta. `POST /sapi/media/folder?action=add-item`.
+    /// Mueve/adjunta un item a una carpeta.
+    /// `POST /sapi/media/folder?action=add-item`.
     ///
-    /// El cuerpo está observado pero **no confirmado** (ver `docs/protocol.md`).
+    /// Cuerpo **confirmado** contra el servicio real:
+    /// `{"data":{"folderid":<carpeta>,"items":[<item>]}}` (con `id` devuelve
+    /// `COM-1011`). Tras la operación, el detalle del item expone `folder`.
     pub async fn add_item(&self, folder_id: &Id, item_id: &Id) -> Result<()> {
         let body = serde_json::json!({
-            "data": { "id": folder_id.as_str(), "items": [item_id.as_str()] }
+            "data": { "folderid": folder_id.as_str(), "items": [item_id.as_str()] }
         });
         let _: serde_json::Value = self
             .client

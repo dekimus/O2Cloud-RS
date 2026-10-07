@@ -8,44 +8,58 @@ use crate::service::resolve_folder;
 /// Listado resultante de `ls`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Listing {
-    /// Carpetas (subcarpetas del destino cuando se puede resolver).
+    /// Carpetas (subcarpetas del destino).
     pub folders: Vec<Folder>,
-    /// Archivos (aplanados; el flujo web no expone carpeta por archivo).
+    /// Archivos del destino (por carpeta cuando el detalle la expone).
     pub files: Vec<MediaItem>,
 }
 
 /// Lista el contenido de una ruta remota.
 ///
-/// Las carpetas se filtran a las hijas del destino (usando `parentid` cuando
-/// el backend lo devuelve); los archivos se listan a nivel de cuenta porque el
-/// listado web no asocia archivos a carpetas de forma fiable.
+/// Las carpetas se filtran a las hijas del destino (usando `parentid`). Los
+/// archivos se filtran por su campo `folder` cuando el detalle lo expone; si no
+/// está disponible, se listan a nivel de cuenta (best-effort).
 pub async fn list(client: &O2CloudClient, remote: &str) -> Result<Listing> {
     let folders = client.folders().list().await?;
+    let target = resolve_folder(remote, &folders)
+        .ok_or_else(|| Error::NotFound(format!("remote folder '{remote}' not found")))?;
+
     let sparse = client.media().list(1000, None).await?;
-    let files = client.media().details(&sparse.media).await?;
+    let details = client.media().details(&sparse.media).await?;
+    let target_is_root = target.name == "/";
+    // El detalle expone `folder` (None = raíz). Para la raíz incluimos los
+    // archivos sin carpeta; para el resto, solo los de esa carpeta.
+    let files: Vec<MediaItem> = details
+        .into_iter()
+        .filter(|item| match item.folder.as_ref() {
+            Some(folder) => folder == &target.id,
+            None => target_is_root,
+        })
+        .collect();
 
-    let folders = match resolve_folder(remote, &folders) {
-        Some(parent) => filter_subfolders(&folders, parent),
-        None => {
-            return Err(Error::NotFound(format!(
-                "remote folder '{remote}' not found"
-            )));
-        }
-    };
-
-    Ok(Listing { folders, files })
+    let subfolders = filter_subfolders(&folders, target);
+    Ok(Listing {
+        folders: subfolders,
+        files,
+    })
 }
 
 /// Devuelve las carpetas hijas de `parent`; si el backend no reporta
-/// `parentid`, devuelve todas (best-effort).
+/// `parentid`, devuelve todas (best-effort). Las carpetas de primer nivel sin
+/// `parentid` se consideran hijas de la raíz.
 fn filter_subfolders(folders: &[Folder], parent: &Folder) -> Vec<Folder> {
     let has_parents = folders.iter().any(|f| f.parentid.is_some());
     if !has_parents {
         return folders.to_vec();
     }
+    let root_id = folders.iter().find(|f| f.name == "/").map(|f| &f.id);
+    let is_root = root_id == Some(&parent.id);
     folders
         .iter()
-        .filter(|f| f.parentid.as_ref() == Some(&parent.id))
+        .filter(|f| {
+            f.id != parent.id
+                && (f.parentid.as_ref() == Some(&parent.id) || (is_root && f.parentid.is_none()))
+        })
         .cloned()
         .collect()
 }

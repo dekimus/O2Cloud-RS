@@ -106,15 +106,16 @@ pub async fn mkdir(client: &O2CloudClient, remote: &str) -> Result<CreatedFolder
     })
 }
 
-/// Copia server-side de `source` a la carpeta `dest` (sin subir/descargar).
-pub async fn copy(client: &O2CloudClient, source: &str, dest: &str) -> Result<CopyOutcome> {
-    let item = stat(client, source).await?;
-    let dest_folder = resolve_folder_id(client, dest).await?;
-    client.media().copy(&item.id, Some(&dest_folder)).await?;
-    Ok(CopyOutcome {
-        source: source.to_string(),
-        dest: dest.to_string(),
-    })
+/// Copia server-side de `source` a la carpeta `dest`.
+///
+/// **No disponible**: el endpoint `POST /sapi/media/file?action=copy` devuelve
+/// `COM-1011` (falta un parámetro) con todos los cuerpos probados contra el
+/// servicio real. Se devuelve un error claro en lugar de enviar una petición
+/// rota (ver `docs/protocol.md`).
+pub async fn copy(_client: &O2CloudClient, _source: &str, _dest: &str) -> Result<CopyOutcome> {
+    Err(Error::Protocol(
+        "server-side copy is not confirmed on this backend yet; see docs/protocol.md".to_string(),
+    ))
 }
 
 /// Mueve un elemento a la carpeta `dest`.
