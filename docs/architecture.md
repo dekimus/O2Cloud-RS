@@ -270,11 +270,15 @@ con `eframe`/`egui` (0.36). Es un binario aparte (`o2cloud-gui`) activado con
 
 Vistas: explorador (navegación por id de carpeta, crear/subir/descargar/mover/
 borrar —también **carpetas**—), **papelera** (listar + vaciar con confirmación),
-cuenta (estado + cuota) y sesión (importar cookie / logout). La subida
-y descarga muestran **progreso** (el `service` acepta un `ProgressReporter`
-alternativo) y los campos locales usan **diálogos nativos** (`rfd`). Tras una
-mutación, el worker emite `Event::Changed` y la vista se **recarga sola**
-(carpeta, cuota y papelera).
+cuenta (estado + cuota) y sesión (**login**: WebView embebida si la feature
+`webview` está activa, abrir el navegador del sistema, o importar cookie;
+logout). La subida y descarga muestran **progreso** (el `service` acepta un
+`ProgressReporter` alternativo) y los campos locales usan **diálogos nativos**
+(`rfd`). Tras una mutación, el worker emite `Event::Changed` y la vista se
+**recarga sola** (carpeta, cuota y papelera).
+
+El login con WebView embebida se ejecuta en el hilo del worker (GTK no comparte
+hilo con eframe/winit), reutilizando `auth::webview`.
 
 ## 13. Tests
 

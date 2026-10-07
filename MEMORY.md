@@ -458,6 +458,11 @@ worker emite `Event::Changed` y la UI recarga la vista (carpeta, cuota y
 papelera) automáticamente; el login reemite la carga inicial y el logout limpia
 el estado.
 
+Login desde la GUI: botón de **WebView embebida** (si la feature `webview` está
+activa; `capture_cookie_header` se ejecuta en un **hilo secundario**, se ha
+verificado que GTK funciona ahí), botón de **abrir navegador** del sistema y
+campo para pegar la cookie.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:

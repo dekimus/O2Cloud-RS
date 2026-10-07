@@ -8,7 +8,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread::JoinHandle;
 
 use crate::api::models::{Folder, Id, Quota};
-use crate::auth::{self, KeyringStore, SecretStore};
+use crate::auth::{self, BrowserOpener, KeyringStore, SecretStore, SystemBrowserOpener, LOGIN_URL};
 use crate::config::AppConfig;
 use crate::error::Result;
 use crate::progress::{ProgressEvent, ProgressReporter};
@@ -42,6 +42,10 @@ pub enum Command {
     SaveSession(String),
     /// Borra la sesión (logout).
     ClearSession,
+    /// Abre el portal en el navegador del sistema para iniciar sesión.
+    OpenLoginBrowser,
+    /// Login con `WebView` embebida (requiere feature `webview`).
+    LoginWebview,
 }
 
 /// Resultado enviado por el worker a la UI.
@@ -152,30 +156,17 @@ async fn run_command(
     ctx: &egui::Context,
 ) -> Result<Vec<Event>> {
     match command {
-        Command::SaveSession(cookie) => {
-            let session = auth::save_session(&keyring()?, &cookie)?;
-            let note = if session.has_jsession_id() {
-                "Sesión guardada."
-            } else {
-                "Sesión guardada (sin JSESSIONID; podría fallar)."
-            };
-            // Tras el login, carga inicial (estado, cuota y raíz).
-            let client = make_client()?;
-            let status = service::status(&client).await?;
-            let mut events = vec![
-                Event::Message(note.to_string()),
-                Event::Status(status.clone()),
-            ];
-            if status.authenticated {
-                let root = service::root_folder(&client).await?;
-                let quota = service::quota(&client).await?;
-                let listing = service::list_folder(&client, &root.id).await?;
-                events.push(Event::Root(root));
-                events.push(Event::Quota(quota));
-                events.push(Event::Listing(listing));
-            }
-            Ok(events)
+        Command::SaveSession(cookie) => store_and_init(cookie).await,
+        Command::LoginWebview => {
+            let cookie = webview_login_cookie()?;
+            store_and_init(cookie).await
         }
+        Command::OpenLoginBrowser => match SystemBrowserOpener.open(LOGIN_URL) {
+            Ok(()) => Ok(vec![Event::Message(format!(
+                "Navegador abierto en {LOGIN_URL}. Inicia sesión y pega la cookie."
+            ))]),
+            Err(err) => Err(err),
+        },
         Command::ClearSession => {
             keyring()?.clear()?;
             Ok(vec![
@@ -192,6 +183,53 @@ async fn run_command(
             run_client_command(&client, other, tx, ctx).await
         }
     }
+}
+
+/// Guarda la cookie, hace la carga inicial y devuelve los eventos.
+async fn store_and_init(cookie: String) -> Result<Vec<Event>> {
+    let session = auth::save_session(&keyring()?, &cookie)?;
+    let note = if session.has_jsession_id() {
+        "Sesión guardada."
+    } else {
+        "Sesión guardada (sin JSESSIONID; podría fallar)."
+    };
+    let client = make_client()?;
+    let status = service::status(&client).await?;
+    let mut events = vec![
+        Event::Message(note.to_string()),
+        Event::Status(status.clone()),
+    ];
+    if status.authenticated {
+        let root = service::root_folder(&client).await?;
+        let quota = service::quota(&client).await?;
+        let listing = service::list_folder(&client, &root.id).await?;
+        events.push(Event::Root(root));
+        events.push(Event::Quota(quota));
+        events.push(Event::Listing(listing));
+    }
+    Ok(events)
+}
+
+/// Captura la cookie con la `WebView` embebida (bloqueante; se ejecuta en el
+/// hilo del worker).
+#[cfg(all(feature = "webview", target_os = "linux"))]
+fn webview_login_cookie() -> Result<String> {
+    use crate::auth::webview::CaptureOutcome;
+    match crate::auth::webview::capture_cookie_header() {
+        CaptureOutcome::Captured(cookie) => Ok(cookie),
+        CaptureOutcome::Cancelled => Err(crate::error::Error::Cancelled),
+        CaptureOutcome::Unavailable(message) => Err(crate::error::Error::LocalIo(format!(
+            "WebView no disponible: {message}"
+        ))),
+    }
+}
+
+/// Sin la feature `webview`, el login embebido no está disponible.
+#[cfg(not(all(feature = "webview", target_os = "linux")))]
+fn webview_login_cookie() -> Result<String> {
+    Err(crate::error::Error::Protocol(
+        "el login con WebView no está disponible en esta compilación".to_string(),
+    ))
 }
 
 #[allow(clippy::too_many_lines)] // despachador con un brazo por comando
@@ -303,6 +341,9 @@ async fn run_client_command(
                 Event::Changed,
             ])
         }
-        Command::SaveSession(_) | Command::ClearSession => Ok(Vec::new()),
+        Command::SaveSession(_)
+        | Command::ClearSession
+        | Command::OpenLoginBrowser
+        | Command::LoginWebview => Ok(Vec::new()),
     }
 }

@@ -134,6 +134,8 @@ iteración.
   (listar + vaciar con confirmación).
 - [x] **auto-refresco** tras una acción (`Event::Changed` → recarga carpeta,
   cuota y papelera; limpia la selección si el elemento desaparece).
+- [x] **login desde la GUI**: WebView embebida (si la feature `webview` está
+  activa), abrir el navegador del sistema, o importar cookie.
 - [x] verificado que arranca (smoke test bajo Xvfb).
 
 ## Próximos pasos (siguiente iteración)

@@ -410,7 +410,25 @@ impl O2CloudApp {
     fn ui_session(&mut self, ui: &mut egui::Ui) {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Sesión");
-            ui.label("Pega la cabecera Cookie (JSESSIONID + validationKey) o el «Copy as cURL»:");
+
+            ui.label("Inicia sesión en O2 Cloud:");
+            ui.horizontal(|ui| {
+                if cfg!(all(feature = "webview", target_os = "linux"))
+                    && ui.button("Iniciar sesión (WebView)").clicked()
+                {
+                    self.worker.send(Command::LoginWebview);
+                }
+                if ui.button("Abrir navegador").clicked() {
+                    self.worker.send(Command::OpenLoginBrowser);
+                }
+            });
+            ui.label(
+                "La WebView abre el portal y captura la sesión automáticamente. \
+                 Con «Abrir navegador» inicias sesión en tu navegador y pegas la cookie abajo.",
+            );
+
+            ui.separator();
+            ui.label("… o pega la cabecera Cookie (JSESSIONID + validationKey) / «Copy as cURL»:");
             ui.add(
                 egui::TextEdit::multiline(&mut self.state.inputs.cookie)
                     .desired_rows(3)

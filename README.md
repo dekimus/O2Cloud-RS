@@ -162,9 +162,20 @@ cargo build --release --features gui
 Permite ver estado/cuota, navegar por carpetas y crear/subir/descargar/mover/
 borrar archivos **y carpetas**, con **diálogos nativos** para elegir rutas
 locales, barra de **progreso** en subida/descarga, pestaña de **Papelera**
-(listar y vaciar con confirmación) e importar/borrar la sesión. La vista se
+(listar y vaciar con confirmación) e **iniciar/cerrar sesión**. La vista se
 **recarga automáticamente** tras cada acción. Es una feature opt-in para no
 imponer dependencias gráficas al resto.
+
+El **login** desde la GUI ofrece:
+- **WebView embebida** (`--features gui,webview`, Linux): captura la sesión
+  automáticamente.
+- **Abrir navegador**: inicia sesión en tu navegador y pega la cookie.
+- **Pegar cookie** manualmente.
+
+```bash
+# con WebView embebida
+cargo run --release --features gui,webview --bin o2cloud-gui
+```
 
 ## Seguridad
 
