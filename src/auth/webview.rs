@@ -117,6 +117,7 @@ pub fn capture_cookie_header() -> CaptureOutcome {
         let webview = Rc::clone(&webview);
         let result = Rc::clone(&result);
         let finished = Rc::clone(&finished);
+        let window = window.clone();
         gtk::glib::timeout_add_local(POLL_INTERVAL, move || {
             if let Ok(cookies) = webview.cookies_for_url(&origin) {
                 let pairs = cookies
@@ -125,6 +126,9 @@ pub fn capture_cookie_header() -> CaptureOutcome {
                 if let Some(header) = cookie_header(pairs) {
                     *result.borrow_mut() = Some(header);
                     *finished.borrow_mut() = true;
+                    tracing::debug!("cookies capturadas; cerrando la WebView");
+                    // Ocultar la ventana desde dentro del bucle (es seguro aquí).
+                    window.set_visible(false);
                     gtk::main_quit();
                     return gtk::glib::ControlFlow::Break;
                 }
@@ -158,6 +162,13 @@ pub fn capture_cookie_header() -> CaptureOutcome {
     });
 
     gtk::main();
+
+    // El bucle principal del hilo ya no corre: asegurarse de que no quede
+    // ninguna ventana visible (p. ej. en el caso de timeout), para no dejar una
+    // ventana "congelada".
+    for widget in gtk::Window::list_toplevels() {
+        widget.set_visible(false);
+    }
 
     let captured = result.borrow().clone();
     if let Some(header) = captured {

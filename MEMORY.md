@@ -440,6 +440,13 @@ Layout (2026-10-07): con `wry` + GTK la `WebView` **no se redimensiona sola**
 ventana con `WebView::set_bounds` en `connect_size_allocate`; el builder de
 `build_gtk(&gtk::Fixed)` no lo hace automáticamente.
 
+Ventana que no se cierra (2026-10-07): al salir de `gtk::main()` el bucle ya no
+procesa eventos, así que la ventana del WebView quedaba **visible y congelada**
+(se veía como si la app se hubiera bloqueado). Se **oculta**
+(`set_visible(false)`) antes de `main_quit` (desde dentro del bucle, donde es
+seguro) y, como red de seguridad, tras el bucle se ocultan las ventanas
+restantes. `WidgetExt::destroy` es `unsafe` en gtk 0.18, por eso no se usa.
+
 ## GUI (2026-10-07)
 
 GUI nativa opcional con `eframe`/`egui` **0.36** (feature `gui`, binario
