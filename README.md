@@ -17,9 +17,10 @@ en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
 - `o2cloud ls [RUTA]` — lista carpetas y archivos.
 - `o2cloud stat RUTA` — detalle de un archivo (id o ruta).
 - `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
+- `o2cloud download REMOTO... --to LOCAL` — descarga archivos (streaming).
 
-No implementado todavía: login asistido por navegador, descarga,
-mkdir/copy/move/rm, sync, FUSE. Ver `docs/implementation-plan.md`.
+No implementado todavía: login asistido por navegador, mkdir/copy/move/rm,
+sync, FUSE. Ver `docs/implementation-plan.md`.
 
 ## Requisitos
 
@@ -66,6 +67,9 @@ o2cloud stat 1195003130
 o2cloud stat /fotos/imagen.jpg
 o2cloud upload ./informe.pdf --to /documentos
 o2cloud upload a.txt b.txt --to /backup
+o2cloud download 1195003130 --to ./fotos/
+o2cloud download /documentos/informe.pdf --to ./informe.pdf
+o2cloud download 1195003130 --to ./informe.pdf --force
 ```
 
 Opciones globales:

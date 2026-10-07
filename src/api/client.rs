@@ -1,16 +1,21 @@
 //! Transporte HTTP SAPI: `O2CloudClient`.
 
+use std::path::Path;
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, COOKIE, USER_AGENT};
 use reqwest::{Client, Method, Response, StatusCode};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use tokio::io::AsyncWriteExt;
 use url::Url;
 
 use crate::auth::session::Session;
 use crate::config::AppConfig;
 use crate::error::{Error, Result};
+use crate::progress::ProgressReporter;
+use crate::util::absolutize;
 
 /// Cliente de alto nivel para el SAPI de O2 Cloud.
 ///
@@ -237,28 +242,14 @@ impl O2CloudClient {
     async fn parse<T: DeserializeOwned>(resp: Response) -> Result<T> {
         let status = resp.status();
 
-        // Estados que mandan sobre la forma del cuerpo.
-        if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
-            return Err(Error::Unauthorized(
-                "session expired or invalid — run 'o2cloud login' again".to_string(),
-            ));
-        }
-        if status == StatusCode::NOT_FOUND {
-            return Err(Error::NotFound("resource not found".to_string()));
-        }
-        if status == StatusCode::CONFLICT {
-            return Err(Error::Conflict("resource conflict".to_string()));
-        }
-        if status == StatusCode::TOO_MANY_REQUESTS {
-            return Err(Error::RateLimited("rate limited by SAPI".to_string()));
+        // Estados HTTP que mandan sobre la forma del cuerpo.
+        if let Some(err) = status_error(status) {
+            return Err(err);
         }
 
         let text = resp.text().await?;
 
         let Ok(value) = serde_json::from_str::<Value>(&text) else {
-            if status.is_server_error() {
-                return Err(Error::Server(format!("non-JSON {status} response")));
-            }
             return Err(Error::InvalidResponse(format!(
                 "non-JSON response (status {status})"
             )));
@@ -267,10 +258,6 @@ impl O2CloudClient {
         // Envelope de error (puede llegar con HTTP 200).
         if let Some(err) = value.get("error").filter(|e| !e.is_null()) {
             return Err(map_sapi_error(err));
-        }
-
-        if status.is_server_error() {
-            return Err(Error::Server(format!("server error (HTTP {status})")));
         }
 
         // Éxito: desenvolver `data` si existe; si no, devolver el objeto tal
@@ -282,6 +269,103 @@ impl O2CloudClient {
 
         serde_json::from_value(data)
             .map_err(|e| Error::InvalidResponse(format!("unexpected response shape: {e}")))
+    }
+
+    /// Descarga el contenido de una URL firmada, en streaming, al fichero
+    /// `dest`.
+    ///
+    /// Convierte la ruta relativa `/sapi/...` en absoluta contra el host
+    /// principal, aplica la cookie de sesión (`k` auto-autentica) y escribe
+    /// por trozos sin cargar el archivo en memoria. Si falla, elimina el
+    /// fichero parcial.
+    pub(crate) async fn download_signed_url(
+        &self,
+        signed_url: &str,
+        dest: &Path,
+        progress: &ProgressReporter,
+    ) -> Result<u64> {
+        let absolute = absolutize(&self.base_url, signed_url);
+        tracing::debug!(path = %Url::parse(&absolute).map(|u| u.path().to_string()).unwrap_or_default(), "download request");
+
+        let mut req = self.transfer_http.get(&absolute);
+        if let Some(session) = &self.session {
+            req = req.header(COOKIE, session.cookie_header());
+        }
+        let resp = req.send().await?;
+
+        let status = resp.status();
+        if let Some(err) = status_error(status) {
+            return Err(err);
+        }
+
+        let mut file = tokio::fs::File::create(dest)
+            .await
+            .map_err(|e| Error::LocalIo(format!("cannot create {}: {e}", dest.display())))?;
+
+        let mut stream = resp.bytes_stream();
+        let mut total: u64 = 0;
+        loop {
+            let next = stream.next().await;
+            match next {
+                Some(Ok(chunk)) => {
+                    if let Err(e) = file.write_all(&chunk).await {
+                        remove_file_quietly(dest).await;
+                        return Err(Error::LocalIo(format!(
+                            "cannot write {}: {e}",
+                            dest.display()
+                        )));
+                    }
+                    total += chunk.len() as u64;
+                    progress.inc(chunk.len() as u64);
+                }
+                Some(Err(e)) => {
+                    remove_file_quietly(dest).await;
+                    return Err(e.into());
+                }
+                None => break,
+            }
+        }
+
+        if let Err(e) = file.flush().await {
+            remove_file_quietly(dest).await;
+            return Err(Error::LocalIo(format!(
+                "cannot flush {}: {e}",
+                dest.display()
+            )));
+        }
+        if let Err(e) = file.sync_all().await {
+            remove_file_quietly(dest).await;
+            return Err(Error::LocalIo(format!(
+                "cannot sync {}: {e}",
+                dest.display()
+            )));
+        }
+
+        Ok(total)
+    }
+}
+
+/// Elimina un fichero ignorando errores (limpieza de parciales).
+async fn remove_file_quietly(path: &Path) {
+    let _ = tokio::fs::remove_file(path).await;
+}
+
+/// Mapea un estado HTTP a un error tipado (o `None` si es 2xx).
+fn status_error(status: StatusCode) -> Option<Error> {
+    if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
+        Some(Error::Unauthorized(
+            "session expired or invalid — run 'o2cloud login' again".to_string(),
+        ))
+    } else if status == StatusCode::NOT_FOUND {
+        Some(Error::NotFound("resource not found".to_string()))
+    } else if status == StatusCode::CONFLICT {
+        Some(Error::Conflict("resource conflict".to_string()))
+    } else if status == StatusCode::TOO_MANY_REQUESTS {
+        Some(Error::RateLimited("rate limited by SAPI".to_string()))
+    } else if status.is_server_error() {
+        Some(Error::Server(format!("server error (HTTP {status})")))
+    } else {
+        None
     }
 }
 

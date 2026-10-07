@@ -70,4 +70,18 @@ pub enum Command {
         #[arg(long, default_value = "/")]
         to: String,
     },
+
+    /// Descarga uno o varios archivos remotos a un destino local.
+    Download {
+        /// Ids o rutas remotas a descargar.
+        remotes: Vec<String>,
+
+        /// Destino local (archivo o directorio). Por defecto, el actual.
+        #[arg(long, default_value = ".")]
+        to: String,
+
+        /// Sobrescribir el archivo local si ya existe.
+        #[arg(long)]
+        force: bool,
+    },
 }

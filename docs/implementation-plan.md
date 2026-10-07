@@ -46,10 +46,11 @@ iteración.
 
 ## Fase 6 — CLI ✅ (parcial)
 
-- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`, `upload`.
+- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`, `upload`,
+  `download`.
 - [x] Flags globales `--json`, `--verbose`, `--quiet`, `--profile`.
 - [x] `--json`: stdout solo JSON, logs a stderr, sin confirmación.
-- [ ] `tree`, `mkdir`, `download`, `cp`, `mv`, `rm` (fases siguientes).
+- [ ] `tree`, `mkdir`, `cp`, `mv`, `rm` (fases siguientes).
 
 ## Fase 7 — Upload ✅
 
@@ -62,9 +63,15 @@ iteración.
 - [x] tests: multipart (cabeceras, cuerpo, fecha), validación confirmada y
   pendiente, respuesta sin envelope.
 
-## Fase 8 — Download
+## Fase 8 — Download ✅
 
-- [ ] metadata → url firmada → streaming → `.part` → rename atómico.
+- [x] metadata → URL firmada → streaming.
+- [x] escritura en `<destino>.part` + `rename` atómico al finalizar.
+- [x] `flush` + `sync_all` antes del rename; limpieza del parcial si falla.
+- [x] limpieza de nombre recibido del servidor (anti path traversal).
+- [x] no sobrescribe por defecto (`--force` para hacerlo).
+- [x] tests: streaming + rename, sin parcial, conflict sin `--force`, overwrite
+  con `--force`, error 500 sin fichero.
 
 ## Fase 9 — Operaciones de archivos
 
@@ -76,8 +83,8 @@ iteración.
 
 ## Fase 11 — Tests
 
-- [x] Unitarios y mock HTTP para lectura y subida.
-- [ ] Ampliar a download/delete/copy/move cuando existan.
+- [x] Unitarios y mock HTTP para lectura, subida y descarga.
+- [ ] Ampliar a delete/copy/move cuando existan.
 
 ## Fase 12 — Documentación
 
@@ -90,6 +97,6 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. `download` (streaming + `.part` + rename atómico + progreso).
-2. `mkdir` + `copy`/`move`/`rm` server-side con confirmación.
-3. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.
+1. `mkdir` + `copy`/`move`/`rm` server-side con confirmación.
+2. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.
+3. `tree` en la CLI.

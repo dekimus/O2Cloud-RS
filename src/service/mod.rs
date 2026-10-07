@@ -1,11 +1,13 @@
 //! Casos de uso: orquestación sin detalles HTTP.
 
+mod download;
 mod ls;
 mod quota;
 mod stat;
 mod status;
 mod upload;
 
+pub use download::{download, DownloadOptions, DownloadOutcome};
 pub use ls::{list, Listing};
 pub use quota::quota;
 pub use stat::stat;

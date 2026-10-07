@@ -162,6 +162,11 @@ Ese `url` debe convertirse en absoluto contra
 
 No concatenar dos veces `/sapi`.
 
+El token `k` auto-autentica la descarga. La implementación Python
+(confirmada live) aplica la cookie de sesión y hace GET **sin** añadir
+`validationkey` al query (añadirlo podría invalidar la firma). Nuestra
+implementación sigue ese comportamiento.
+
 `action=export` no es la descarga normal.
 
 ### Upload

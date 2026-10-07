@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::api::models::{MediaItem, Quota};
 use crate::error::Error;
-use crate::service::{Listing, StatusInfo, UploadOutcome};
+use crate::service::{DownloadOutcome, Listing, StatusInfo, UploadOutcome};
 use crate::util::format_bytes;
 
 /// Renderizador de salida según el modo (`--json` o humano).
@@ -138,6 +138,18 @@ pub fn print_uploads(outcomes: &[UploadOutcome]) {
             format_bytes(i64::try_from(outcome.size).unwrap_or(i64::MAX)),
             outcome.id,
             validation
+        );
+    }
+}
+
+/// Imprime el resultado de una o varias descargas en modo humano.
+pub fn print_downloads(outcomes: &[DownloadOutcome]) {
+    for outcome in outcomes {
+        println!(
+            "✓ {} → {} ({})",
+            outcome.name,
+            outcome.path,
+            format_bytes(i64::try_from(outcome.size).unwrap_or(i64::MAX))
         );
     }
 }

@@ -63,7 +63,7 @@ src/
     store.rs           trait SecretStore + KeyringStore + EnvStore + MemoryStore
   service/
     mod.rs             resolución de rutas remotas, identidad
-    status.rs quota.rs ls.rs stat.rs upload.rs
+    status.rs quota.rs ls.rs stat.rs upload.rs download.rs
 ```
 
 ## 4. Cliente SAPI (`O2CloudClient`)
@@ -178,7 +178,22 @@ pub enum Error {
   confirmar (`status == "U"`). La consistencia es eventual: no se declara
   "disponible" hasta confirmarla.
 
-## 10. Tests
+## 10. Descarga (`download`)
+
+- Se obtiene la metadata del archivo (`stat`) y su campo `url`: una ruta
+  firmada relativa `/sapi/download/file?action=get&k=<sig>&node=<n>`.
+- La ruta se convierte en absoluta contra el host principal (**nunca**
+  `/sapi/sapi/...`) y se hace `GET` en streaming. El token `k` auto-autentica;
+  se aplica la cookie de sesión, pero **no** se añade `validationkey` al query
+  (evita romper la firma).
+- Escritura en `<destino>.part` → `flush` + `sync_all` → `rename` atómico.
+  Si la descarga se interrumpe, se elimina el parcial y no queda un archivo
+  aparentemente completo.
+- El nombre recibido del servidor se sanea (sin separadores ni `..`) para
+  evitar path traversal.
+- No sobrescribe un fichero existente salvo `--force`.
+
+## 11. Tests
 
 - Unitarios: parsing de envelope, extracción de `validationKey`, coerción de
   ids, mapeo de errores, formato `YYYYMMDDThhmmssZ`.
@@ -188,7 +203,7 @@ pub enum Error {
   validación confirmada y pendiente.
 - Live manual (nunca en CI): `O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE=...`.
 
-## 11. Dependencias (punto de partida)
+## 12. Dependencias (punto de partida)
 
 | Crate | Uso |
 | ----- | --- |

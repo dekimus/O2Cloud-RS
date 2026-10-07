@@ -65,6 +65,19 @@ pub fn is_hex32(s: &str) -> bool {
     s.len() == 32 && s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Convierte una ruta firmada relativa (`/sapi/...`) en URL absoluta contra
+/// `base_url`. Si ya es absoluta (`http`/`https`), la devuelve sin tocar.
+#[must_use]
+pub fn absolutize(base_url: &str, url: &str) -> String {
+    if url.starts_with("http://") || url.starts_with("https://") {
+        url.to_string()
+    } else if let Some(rest) = url.strip_prefix('/') {
+        format!("{}/{}", base_url.trim_end_matches('/'), rest)
+    } else {
+        format!("{}/{}", base_url.trim_end_matches('/'), url)
+    }
+}
+
 /// Instante actual formateado como `YYYYMMDDThhmmssZ` (UTC compacto).
 ///
 /// Es el formato que exige el backend en `creationdate`/`modificationdate`;
@@ -159,5 +172,24 @@ mod tests {
     fn formats_compact_utc() {
         let dt = time::OffsetDateTime::from_unix_timestamp(1_705_314_645).unwrap();
         assert_eq!(format_compact_utc(dt), "20240115T103045Z");
+    }
+
+    #[test]
+    fn absolutizes_signed_paths() {
+        assert_eq!(
+            absolutize(
+                "https://cloud.o2online.es",
+                "/sapi/download/file?action=get&k=x"
+            ),
+            "https://cloud.o2online.es/sapi/download/file?action=get&k=x"
+        );
+        assert_eq!(
+            absolutize("https://cloud.o2online.es/", "/sapi/download/file"),
+            "https://cloud.o2online.es/sapi/download/file"
+        );
+        assert_eq!(
+            absolutize("https://cloud.o2online.es", "https://other.example/x"),
+            "https://other.example/x"
+        );
     }
 }

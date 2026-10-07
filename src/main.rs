@@ -6,7 +6,7 @@ use o2cloud::cli::{Cli, Command};
 use o2cloud::config::AppConfig;
 use o2cloud::error::{Error, Result};
 use o2cloud::output::{
-    print_listing, print_media, print_quota, print_status, print_uploads, Output,
+    print_downloads, print_listing, print_media, print_quota, print_status, print_uploads, Output,
 };
 use o2cloud::{service, O2CloudClient, Session};
 use serde_json::json;
@@ -126,6 +126,31 @@ async fn run(cli: &Cli, output: Output) -> Result<()> {
             output.success(&outcomes);
             if !output.is_json() {
                 print_uploads(&outcomes);
+            }
+            Ok(())
+        }
+
+        Command::Download { remotes, to, force } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+
+            if remotes.is_empty() {
+                return Err(Error::Protocol("no remote files given".to_string()));
+            }
+            let multiple = remotes.len() > 1;
+            let options = service::DownloadOptions {
+                show_progress: show_progress(cli, output),
+                force: *force,
+            };
+            let mut outcomes = Vec::with_capacity(remotes.len());
+            for remote in remotes {
+                let outcome =
+                    service::download(&client, remote, Path::new(to), multiple, &options).await?;
+                outcomes.push(outcome);
+            }
+            output.success(&outcomes);
+            if !output.is_json() {
+                print_downloads(&outcomes);
             }
             Ok(())
         }
