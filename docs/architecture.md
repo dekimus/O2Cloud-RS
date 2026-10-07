@@ -66,6 +66,12 @@ src/
   service/
     mod.rs             resolución de rutas remotas, identidad
     status.rs quota.rs ls.rs tree.rs stat.rs upload.rs download.rs files.rs
+  gui/                 interfaz gráfica (feature `gui`)
+    mod.rs             `run()` de eframe
+    state.rs           view-model (testeable)
+    worker.rs          puente async (tokio + canales)
+    app.rs             UI (egui)
+  gui_main.rs          binario `o2cloud-gui` (requiere feature `gui`)
 ```
 
 ## 4. Cliente SAPI (`O2CloudClient`)
@@ -248,7 +254,24 @@ hace I/O de UI): `--yes` salta la confirmación; en `--json` o sin TTY no se
 pregunta y se exige `--yes`; un rechazo del usuario produce `Error::Cancelled`
 (exit 11).
 
-## 12. Tests
+## 12. GUI (feature `gui`)
+
+Interfaz gráfica nativa opcional sobre la misma librería (`service`/`api`/`auth`),
+con `eframe`/`egui` (0.36). Es un binario aparte (`o2cloud-gui`) activado con
+`--features gui`, para no imponer dependencias gráficas al resto.
+
+- `gui/state.rs`: **view-model** puro (`AppState`, migas de pan, selección,
+  entradas) y **testeable** sin UI.
+- `gui/worker.rs`: puente entre la UI síncrona y el servicio async. Un hilo con
+  su propio runtime de tokio ejecuta los `Command`s y devuelve `Event`s por
+  canal; despierta a la UI con `Context::request_repaint`.
+- `gui/app.rs`: la UI (`eframe::App::ui`), con paneles y ventana de confirmación
+  de borrado.
+
+Vistas: explorador (navegación por id de carpeta, crear/subir/descargar/mover/
+borrar), cuenta (estado + cuota) y sesión (importar cookie / logout).
+
+## 13. Tests
 
 - Unitarios: parsing de envelope, extracción de `validationKey`, coerción de
   ids, mapeo de errores, formato `YYYYMMDDThhmmssZ`.
@@ -258,7 +281,7 @@ pregunta y se exige `--yes`; un rechazo del usuario produce `Error::Cancelled`
   validación confirmada y pendiente.
 - Live manual (nunca en CI): `O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE=...`.
 
-## 13. Dependencias (punto de partida)
+## 14. Dependencias (punto de partida)
 
 | Crate | Uso |
 | ----- | --- |
@@ -277,6 +300,7 @@ pregunta y se exige `--yes`; un rechazo del usuario produce `Error::Cancelled`
 | `wiremock` (dev) | mock HTTP |
 | `tempfile` (dev) | ficheros temporales en tests |
 | `wry` + `gtk` (opcional, `webview`) | WebView embebida (Linux) |
+| `eframe` + `egui` (opcional, `gui`) | interfaz gráfica nativa |
 
 Se añadirán `directories` (cuando se persista un archivo de config) y otras
 cuando lleguen las fases de download/config.

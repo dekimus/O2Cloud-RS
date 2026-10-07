@@ -13,6 +13,7 @@ pub use browser::{
 pub use session::Session;
 pub use store::{EnvStore, KeyringStore, MemoryStore, SecretStore};
 
+use crate::config::AppConfig;
 use crate::error::Result;
 
 /// Valida y guarda en el almacén una sesión a partir de una cookie pegada.
@@ -24,6 +25,27 @@ pub fn save_session(store: &dyn SecretStore, cookie: &str) -> Result<Session> {
     let session = Session::from_cookie_header(cookie)?;
     store.set_cookie(session.cookie_header())?;
     Ok(session)
+}
+
+/// Carga una sesión desde un almacén (si existe).
+pub fn load_session_from(store: &dyn SecretStore) -> Result<Option<Session>> {
+    match store.get_cookie()? {
+        Some(cookie) => Ok(Some(Session::from_cookie_header(&cookie)?)),
+        None => Ok(None),
+    }
+}
+
+/// Carga la sesión almacenada: primero `O2CLOUD_COOKIE` (testing/automatización),
+/// después el keyring del sistema.
+pub fn load_stored_session(config: &AppConfig) -> Result<Option<Session>> {
+    if let Ok(cookie) = std::env::var("O2CLOUD_COOKIE") {
+        let cookie = cookie.trim();
+        if !cookie.is_empty() {
+            return Ok(Some(Session::from_cookie_header(cookie)?));
+        }
+    }
+    let store = KeyringStore::new(&config.keyring_service())?;
+    load_session_from(&store)
 }
 
 #[cfg(test)]
@@ -44,5 +66,16 @@ mod tests {
             store.get_cookie().unwrap().as_deref(),
             Some("JSESSIONID=x; validationKey=0123456789abcdef0123456789abcdef")
         );
+    }
+
+    #[test]
+    fn load_session_from_memory() {
+        let store = MemoryStore::new();
+        assert!(load_session_from(&store).unwrap().is_none());
+        store
+            .set_cookie("JSESSIONID=x; validationKey=0123456789abcdef0123456789abcdef")
+            .unwrap();
+        let session = load_session_from(&store).unwrap().unwrap();
+        assert!(session.has_jsession_id());
     }
 }

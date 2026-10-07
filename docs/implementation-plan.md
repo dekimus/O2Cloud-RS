@@ -119,7 +119,16 @@ iteración.
 ## Fase 13 — No implementar todavía
 
 - [ ] FUSE, sync bidireccional, shares, álbumes, labels, búsqueda server-side,
-  versiones, GUI, daemon.
+  versiones, daemon.
+
+## Fase 14 — GUI ✅
+
+- [x] GUI nativa opcional (`eframe`/`egui` 0.36, feature `gui`, binario
+  `o2cloud-gui`).
+- [x] view-model testeable (`gui/state.rs`) + puente async (`gui/worker.rs`).
+- [x] vistas: explorador (navegar/crear/subir/descargar/mover/borrar), cuenta
+  (estado + cuota), sesión (importar cookie / logout).
+- [x] verificado que arranca (smoke test bajo Xvfb).
 
 ## Próximos pasos (siguiente iteración)
 

@@ -14,7 +14,7 @@ pub use files::{
     copy, mkdir, move_item, remove, resolve_removable, CopyOutcome, CreatedFolder, MoveOutcome,
     Removable,
 };
-pub use ls::{list, Listing};
+pub use ls::{list, list_folder, Listing};
 pub use quota::quota;
 pub use stat::stat;
 pub use status::{status, StatusInfo};
@@ -68,6 +68,15 @@ pub async fn resolve_folder_id(client: &O2CloudClient, remote: &str) -> Result<I
     resolve_folder(remote, &folders)
         .map(|folder| folder.id.clone())
         .ok_or_else(|| Error::NotFound(format!("remote folder '{remote}' not found")))
+}
+
+/// Devuelve la carpeta raíz de la cuenta.
+pub async fn root_folder(client: &O2CloudClient) -> Result<Folder> {
+    let folders = client.folders().list().await?;
+    folders
+        .into_iter()
+        .find(|folder| folder.name == "/")
+        .ok_or_else(|| Error::NotFound("root folder not found".to_string()))
 }
 
 /// Extrae una etiqueta de identidad legible del perfil (tolerante a la forma).

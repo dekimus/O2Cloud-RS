@@ -150,6 +150,19 @@ Opciones globales:
 Con `--json`, stdout contiene **exclusivamente** JSON; los logs y el progreso
 van a stderr. Los códigos de salida son estables (ver `docs/architecture.md`).
 
+## Interfaz gráfica (opcional)
+
+Incluye una GUI nativa (`eframe`/`egui`) sobre la misma librería:
+
+```bash
+cargo build --release --features gui
+./target/release/o2cloud-gui
+```
+
+Permite ver estado/cuota, navegar por carpetas y crear/subir/descargar/mover/
+borrar archivos, además de importar/borrar la sesión. Es una feature opt-in
+para no imponer dependencias gráficas al resto.
+
 ## Seguridad
 
 - TLS siempre verificado (rustls).

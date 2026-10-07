@@ -1,7 +1,7 @@
 //! Caso de uso: listado de carpetas y archivos.
 
 use crate::api::client::O2CloudClient;
-use crate::api::models::{Folder, MediaItem};
+use crate::api::models::{Folder, Id, MediaItem};
 use crate::error::{Error, Result};
 use crate::service::resolve_folder;
 
@@ -14,16 +14,25 @@ pub struct Listing {
     pub files: Vec<MediaItem>,
 }
 
-/// Lista el contenido de una ruta remota.
-///
-/// Las carpetas se filtran a las hijas del destino (usando `parentid`). Los
-/// archivos se filtran por su campo `folder` cuando el detalle lo expone; si no
-/// está disponible, se listan a nivel de cuenta (best-effort).
+/// Lista el contenido de una ruta remota (por nombre de ruta).
 pub async fn list(client: &O2CloudClient, remote: &str) -> Result<Listing> {
     let folders = client.folders().list().await?;
     let target = resolve_folder(remote, &folders)
         .ok_or_else(|| Error::NotFound(format!("remote folder '{remote}' not found")))?;
+    list_in(client, &folders, target).await
+}
 
+/// Lista el contenido de una carpeta por su id (evita ambigüedad de nombres).
+pub async fn list_folder(client: &O2CloudClient, folder_id: &Id) -> Result<Listing> {
+    let folders = client.folders().list().await?;
+    let target = folders
+        .iter()
+        .find(|folder| &folder.id == folder_id)
+        .ok_or_else(|| Error::NotFound(format!("folder '{folder_id}' not found")))?;
+    list_in(client, &folders, target).await
+}
+
+async fn list_in(client: &O2CloudClient, folders: &[Folder], target: &Folder) -> Result<Listing> {
     let sparse = client.media().list(1000, None).await?;
     let details = client.media().details(&sparse.media).await?;
     let target_is_root = target.name == "/";
@@ -37,7 +46,7 @@ pub async fn list(client: &O2CloudClient, remote: &str) -> Result<Listing> {
         })
         .collect();
 
-    let subfolders = filter_subfolders(&folders, target);
+    let subfolders = filter_subfolders(folders, target);
     Ok(Listing {
         folders: subfolders,
         files,

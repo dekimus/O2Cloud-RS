@@ -436,6 +436,18 @@ Layout (2026-10-07): con `wry` + GTK la `WebView` **no se redimensiona sola**
 ventana con `WebView::set_bounds` en `connect_size_allocate`; el builder de
 `build_gtk(&gtk::Fixed)` no lo hace automáticamente.
 
+## GUI (2026-10-07)
+
+GUI nativa opcional con `eframe`/`egui` **0.36** (feature `gui`, binario
+`o2cloud-gui`). Nota de API: en 0.36 el trait es `eframe::App::ui(&mut self,
+&mut Ui, &mut Frame)` (no `update`) y los paneles son `egui::Panel::{top,bottom,
+left,right}` mostrados dentro de un `Ui` (ya no `TopBottomPanel`/`SidePanel`).
+
+Arquitectura: view-model puro y testeable (`gui/state.rs`) + puente async
+(`gui/worker.rs`: hilo con runtime tokio, `Command`/`Event` por canal y
+`Context::request_repaint`) + UI (`gui/app.rs`). Reutiliza la misma librería que
+la CLI.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:

@@ -30,6 +30,8 @@ pub mod auth;
 pub mod cli;
 pub mod config;
 pub mod error;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod output;
 pub mod progress;
 pub mod service;
