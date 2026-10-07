@@ -10,6 +10,8 @@ use crate::gui::worker::{Command, Event, Worker};
 pub struct O2CloudApp {
     state: AppState,
     worker: Worker,
+    /// Hay que recargar la vista tras una mutación.
+    refresh_after_action: bool,
 }
 
 impl O2CloudApp {
@@ -21,6 +23,7 @@ impl O2CloudApp {
         Self {
             state: AppState::default(),
             worker,
+            refresh_after_action: false,
         }
     }
 
@@ -29,14 +32,27 @@ impl O2CloudApp {
             match event {
                 Event::Busy(busy) => self.state.busy = busy,
                 Event::Root(folder) => self.state.set_root(folder),
-                Event::Status(status) => self.state.status = Some(status),
+                Event::Status(status) => {
+                    if !status.authenticated {
+                        // Sesión cerrada/expirada: limpiar la vista.
+                        self.state.breadcrumb.clear();
+                        self.state.folders.clear();
+                        self.state.files.clear();
+                        self.state.trash.clear();
+                        self.state.quota = None;
+                        self.state.selected = None;
+                    }
+                    self.state.status = Some(status);
+                }
                 Event::Quota(quota) => self.state.quota = Some(quota),
                 Event::Listing(listing) => {
                     self.state.folders = listing.folders;
                     self.state.files = listing.files;
+                    self.drop_missing_selection();
                 }
                 Event::Trash(entries) => self.state.trash = entries,
                 Event::Progress(event) => self.state.apply_progress(event),
+                Event::Changed => self.refresh_after_action = true,
                 Event::Message(message) => {
                     self.state.message = Some(message);
                     self.state.error = None;
@@ -46,6 +62,37 @@ impl O2CloudApp {
                     self.state.message = None;
                 }
             }
+        }
+    }
+
+    /// Deselecciona si el elemento ya no está en la carpeta actual.
+    fn drop_missing_selection(&mut self) {
+        let Some(id) = self.state.selected_id().cloned() else {
+            return;
+        };
+        let present = self.state.folders.iter().any(|folder| folder.id == id)
+            || self.state.files.iter().any(|file| file.id == id);
+        if !present {
+            self.state.selected = None;
+        }
+    }
+
+    /// Recarga la vista actual (carpeta, cuota y papelera si procede).
+    fn refresh_view(&self) {
+        let authenticated = self
+            .state
+            .status
+            .as_ref()
+            .is_some_and(|status| status.authenticated);
+        if !authenticated {
+            return;
+        }
+        self.worker.send(Command::Refresh);
+        if self.state.current_id().is_some() {
+            self.reload_current();
+        }
+        if self.state.tab == Tab::Trash {
+            self.worker.send(Command::TrashList);
         }
     }
 
@@ -442,6 +489,10 @@ impl O2CloudApp {
 impl eframe::App for O2CloudApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.apply_events();
+        if self.refresh_after_action {
+            self.refresh_after_action = false;
+            self.refresh_view();
+        }
         self.ui_top(ui);
         self.ui_bottom(ui);
         match self.state.tab {

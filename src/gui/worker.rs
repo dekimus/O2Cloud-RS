@@ -61,6 +61,8 @@ pub enum Event {
     Trash(Vec<crate::api::models::TrashEntry>),
     /// Progreso de una transferencia.
     Progress(ProgressEvent),
+    /// Una mutación ha cambiado el estado remoto: la vista debe recargarse.
+    Changed,
     /// Mensaje de éxito.
     Message(String),
     /// Error.
@@ -157,11 +159,33 @@ async fn run_command(
             } else {
                 "Sesión guardada (sin JSESSIONID; podría fallar)."
             };
-            Ok(vec![Event::Message(note.to_string())])
+            // Tras el login, carga inicial (estado, cuota y raíz).
+            let client = make_client()?;
+            let status = service::status(&client).await?;
+            let mut events = vec![
+                Event::Message(note.to_string()),
+                Event::Status(status.clone()),
+            ];
+            if status.authenticated {
+                let root = service::root_folder(&client).await?;
+                let quota = service::quota(&client).await?;
+                let listing = service::list_folder(&client, &root.id).await?;
+                events.push(Event::Root(root));
+                events.push(Event::Quota(quota));
+                events.push(Event::Listing(listing));
+            }
+            Ok(events)
         }
         Command::ClearSession => {
             keyring()?.clear()?;
-            Ok(vec![Event::Message("Sesión eliminada.".to_string())])
+            Ok(vec![
+                Event::Message("Sesión eliminada.".to_string()),
+                Event::Status(StatusInfo {
+                    authenticated: false,
+                    identity: None,
+                    profile: None,
+                }),
+            ])
         }
         other => {
             let client = make_client()?;
@@ -170,6 +194,7 @@ async fn run_command(
     }
 }
 
+#[allow(clippy::too_many_lines)] // despachador con un brazo por comando
 async fn run_client_command(
     client: &O2CloudClient,
     command: Command,
@@ -208,10 +233,13 @@ async fn run_client_command(
         }
         Command::Mkdir(path) => {
             let created = service::mkdir(client, &path).await?;
-            Ok(vec![Event::Message(format!(
-                "Carpeta '{}' creada (id {})",
-                created.name, created.id
-            ))])
+            Ok(vec![
+                Event::Message(format!(
+                    "Carpeta '{}' creada (id {})",
+                    created.name, created.id
+                )),
+                Event::Changed,
+            ])
         }
         Command::Upload { local, folder } => {
             let outcome = service::upload(
@@ -224,10 +252,13 @@ async fn run_client_command(
                 },
             )
             .await?;
-            Ok(vec![Event::Message(format!(
-                "Subido '{}' ({} bytes)",
-                outcome.name, outcome.size
-            ))])
+            Ok(vec![
+                Event::Message(format!(
+                    "Subido '{}' ({} bytes)",
+                    outcome.name, outcome.size
+                )),
+                Event::Changed,
+            ])
         }
         Command::Download { remote, dest } => {
             let outcome = service::download(
@@ -248,15 +279,18 @@ async fn run_client_command(
         }
         Command::Move { source, dest } => {
             let outcome = service::move_item(client, &source, &dest).await?;
-            Ok(vec![Event::Message(format!(
-                "Movido {} → {}",
-                outcome.source, outcome.dest
-            ))])
+            Ok(vec![
+                Event::Message(format!("Movido {} → {}", outcome.source, outcome.dest)),
+                Event::Changed,
+            ])
         }
         Command::Remove { remote, permanent } => {
             let target = service::resolve_removable(client, &remote).await?;
             service::remove(client, &target, permanent).await?;
-            Ok(vec![Event::Message(format!("Eliminado {}", target.name()))])
+            Ok(vec![
+                Event::Message(format!("Eliminado {}", target.name())),
+                Event::Changed,
+            ])
         }
         Command::TrashList => {
             let entries = service::trash_list(client).await?;
@@ -264,10 +298,9 @@ async fn run_client_command(
         }
         Command::TrashEmpty => {
             let removed = service::trash_empty(client).await?;
-            let entries = service::trash_list(client).await?;
             Ok(vec![
                 Event::Message(format!("Papelera vaciada ({removed} elementos)")),
-                Event::Trash(entries),
+                Event::Changed,
             ])
         }
         Command::SaveSession(_) | Command::ClearSession => Ok(Vec::new()),

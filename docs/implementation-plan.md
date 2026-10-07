@@ -132,6 +132,8 @@ iteración.
   de archivo nativos (`rfd`).
 - [x] borrado de carpetas (selección de carpeta) y pestaña **Papelera**
   (listar + vaciar con confirmación).
+- [x] **auto-refresco** tras una acción (`Event::Changed` → recarga carpeta,
+  cuota y papelera; limpia la selección si el elemento desaparece).
 - [x] verificado que arranca (smoke test bajo Xvfb).
 
 ## Próximos pasos (siguiente iteración)

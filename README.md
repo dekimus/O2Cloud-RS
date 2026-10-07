@@ -162,8 +162,9 @@ cargo build --release --features gui
 Permite ver estado/cuota, navegar por carpetas y crear/subir/descargar/mover/
 borrar archivos **y carpetas**, con **diálogos nativos** para elegir rutas
 locales, barra de **progreso** en subida/descarga, pestaña de **Papelera**
-(listar y vaciar con confirmación) e importar/borrar la sesión. Es una feature
-opt-in para no imponer dependencias gráficas al resto.
+(listar y vaciar con confirmación) e importar/borrar la sesión. La vista se
+**recarga automáticamente** tras cada acción. Es una feature opt-in para no
+imponer dependencias gráficas al resto.
 
 ## Seguridad
 

@@ -453,7 +453,10 @@ Arquitectura: view-model puro y testeable (`gui/state.rs`) + puente async
 la CLI. La subida/descarga muestran progreso: `ProgressReporter` es un sink
 opcional (`ProgressSink`) con implementaciones `indicatif` (CLI) y callback
 (GUI); las opciones `UploadOptions`/`DownloadOptions` aceptan `reporter`. Los
-diálogos de archivo usan `rfd` (portal XDG, sin GTK).
+diálogos de archivo usan `rfd` (portal XDG, sin GTK). Tras una mutación el
+worker emite `Event::Changed` y la UI recarga la vista (carpeta, cuota y
+papelera) automáticamente; el login reemite la carga inicial y el logout limpia
+el estado.
 
 ## Fuentes externas
 

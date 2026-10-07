@@ -272,7 +272,9 @@ Vistas: explorador (navegación por id de carpeta, crear/subir/descargar/mover/
 borrar —también **carpetas**—), **papelera** (listar + vaciar con confirmación),
 cuenta (estado + cuota) y sesión (importar cookie / logout). La subida
 y descarga muestran **progreso** (el `service` acepta un `ProgressReporter`
-alternativo) y los campos locales usan **diálogos nativos** (`rfd`).
+alternativo) y los campos locales usan **diálogos nativos** (`rfd`). Tras una
+mutación, el worker emite `Event::Changed` y la vista se **recarga sola**
+(carpeta, cuota y papelera).
 
 ## 13. Tests
 
