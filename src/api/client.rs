@@ -249,10 +249,17 @@ impl O2CloudClient {
 
         let text = resp.text().await?;
 
-        let Ok(value) = serde_json::from_str::<Value>(&text) else {
-            return Err(Error::InvalidResponse(format!(
-                "non-JSON response (status {status})"
-            )));
+        let value = if text.trim().is_empty() {
+            Value::Null
+        } else {
+            match serde_json::from_str::<Value>(&text) {
+                Ok(value) => value,
+                Err(_) => {
+                    return Err(Error::InvalidResponse(format!(
+                        "non-JSON response (status {status})"
+                    )));
+                }
+            }
         };
 
         // Envelope de error (puede llegar con HTTP 200).

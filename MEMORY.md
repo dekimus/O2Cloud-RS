@@ -137,6 +137,21 @@ Un HTTP 200 puede contener un error SAPI. Siempre inspeccionar el JSON.
 
 `POST /sapi/media/folder?action=zip`
 
+Cuerpos (flujo web, confirmados en el cliente Python):
+
+-   crear/renombrar: `{"data":{"name":<name>[,"parent":<id>]}}`;
+-   borrar/papelera: `{"data":{"folders":[<id>]}}`.
+
+La implementación Rust usa `{"data":{name,parentid,magic,creationdate,modificationdate}}`
+y `?id=<id>`; seguimos la variante web.
+
+`add-item`/`remove-item`: cuerpo observado pero **PARTIAL**
+(`{"data":{"id":<folderid>,"items":[<itemid>]}}`). El movimiento (`mv`) se
+implementa como `add-item` y requiere confirmación con tráfico real.
+
+El borrado recursivo de carpetas no está confirmado: con el flujo web, el
+listado de media es a nivel de cuenta y no asocia archivos a carpetas.
+
 ### Media
 
 `GET /sapi/media?action=get&limit=N`
@@ -150,6 +165,14 @@ Un HTTP 200 puede contener un error SAPI. Siempre inspeccionar el JSON.
 `POST /sapi/media/file?action=copy`
 
 `POST /sapi/media?action=get-validation-status`
+
+Cuerpos (confirmados):
+
+-   detalle: `{"data":{"files":[{"id":<id>}]}}`;
+-   borrar/papelera: `{"data":{"files":[<id>]}}`;
+-   copia server-side: `{"data":{"files":[<id>][,"folder":<dest>]}}`.
+-   La variante por tipo (`media/picture|video|audio`) existe; el recurso se
+    elige por `mediatype`.
 
 ### Download
 

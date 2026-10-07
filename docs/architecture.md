@@ -63,7 +63,7 @@ src/
     store.rs           trait SecretStore + KeyringStore + EnvStore + MemoryStore
   service/
     mod.rs             resolución de rutas remotas, identidad
-    status.rs quota.rs ls.rs stat.rs upload.rs download.rs
+    status.rs quota.rs ls.rs stat.rs upload.rs download.rs files.rs
 ```
 
 ## 4. Cliente SAPI (`O2CloudClient`)
@@ -193,7 +193,22 @@ pub enum Error {
   evitar path traversal.
 - No sobrescribe un fichero existente salvo `--force`.
 
-## 11. Tests
+## 11. Operaciones de archivos y confirmación
+
+- `mkdir` → `POST /sapi/media/folder?action=save` con `{"data":{"name":…,"parent":…}}`.
+- `cp` (server-side) → `POST /sapi/media/file?action=copy` con
+  `{"data":{"files":[id],"folder":dest}}`.
+- `mv` → `POST /sapi/media/folder?action=add-item` (**PARTIAL**: cuerpo
+  observado pero no confirmado).
+- `rm` → `media/{file,folder}?action=softdelete` (papelera) o `action=delete`
+  (permanente). El tipo de recurso de media se elige por `mediatype`.
+
+**Confirmación (Fase 10).** La capa CLI decide si preguntar (la capa servicio no
+hace I/O de UI): `--yes` salta la confirmación; en `--json` o sin TTY no se
+pregunta y se exige `--yes`; un rechazo del usuario produce `Error::Cancelled`
+(exit 11).
+
+## 12. Tests
 
 - Unitarios: parsing de envelope, extracción de `validationKey`, coerción de
   ids, mapeo de errores, formato `YYYYMMDDThhmmssZ`.
@@ -203,7 +218,7 @@ pub enum Error {
   validación confirmada y pendiente.
 - Live manual (nunca en CI): `O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE=...`.
 
-## 12. Dependencias (punto de partida)
+## 13. Dependencias (punto de partida)
 
 | Crate | Uso |
 | ----- | --- |

@@ -116,6 +116,37 @@ impl MediaApi<'_> {
             .await?;
         Ok(resp.ids)
     }
+
+    /// Borra un elemento de media.
+    /// `POST /sapi/media/<type>?action={delete,softdelete}` con
+    /// `{"data":{"files":[id]}}`. `permanent=false` usa la papelera.
+    pub async fn delete(&self, id: &Id, permanent: bool, mediatype: &str) -> Result<()> {
+        let resource = type_resource(mediatype);
+        let action = if permanent { "delete" } else { "softdelete" };
+        let path = format!("/media/{resource}");
+        let body = serde_json::json!({ "data": { "files": [id.as_str()] } });
+        let _: serde_json::Value = self
+            .client
+            .post(&path, &[("action", action)], Some(&body))
+            .await?;
+        Ok(())
+    }
+
+    /// Copia server-side. `POST /sapi/media/file?action=copy`.
+    ///
+    /// `folder_id` es la carpeta destino (opcional).
+    pub async fn copy(&self, id: &Id, folder_id: Option<&Id>) -> Result<()> {
+        let mut data = serde_json::json!({ "files": [id.as_str()] });
+        if let Some(folder) = folder_id {
+            data["folder"] = serde_json::json!(folder.as_str());
+        }
+        let body = serde_json::json!({ "data": data });
+        let _: serde_json::Value = self
+            .client
+            .post("/media/file", &[("action", "copy")], Some(&body))
+            .await?;
+        Ok(())
+    }
 }
 
 /// Recurso SAPI por tipo de media.

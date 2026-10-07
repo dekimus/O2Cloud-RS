@@ -154,6 +154,102 @@ async fn run(cli: &Cli, output: Output) -> Result<()> {
             }
             Ok(())
         }
+
+        Command::Mkdir { remote } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+            let created = service::mkdir(&client, remote).await?;
+            output.success(&created);
+            if !output.is_json() {
+                println!("✓ Carpeta creada: {} (id {})", created.name, created.id);
+            }
+            Ok(())
+        }
+
+        Command::Cp { source, dest } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+            let outcome = service::copy(&client, source, dest).await?;
+            output.success(&outcome);
+            if !output.is_json() {
+                println!("✓ Copiado {} → {}", outcome.source, outcome.dest);
+            }
+            Ok(())
+        }
+
+        Command::Mv { source, dest } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+            let outcome = service::move_item(&client, source, dest).await?;
+            output.success(&outcome);
+            if !output.is_json() {
+                println!("✓ Movido {} → {}", outcome.source, outcome.dest);
+            }
+            Ok(())
+        }
+
+        Command::Rm {
+            remote,
+            permanent,
+            yes,
+        } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+
+            let target = service::resolve_removable(&client, remote).await?;
+            ensure_confirmation(*yes, output.is_json(), &target.label())?;
+            service::remove(&client, &target, *permanent).await?;
+
+            let message = json!({
+                "name": target.name(),
+                "id": target.id().as_str(),
+                "permanent": permanent,
+            });
+            output.success(&message);
+            if !output.is_json() {
+                let mode = if *permanent {
+                    "permanentemente"
+                } else {
+                    "a la papelera"
+                };
+                println!("✓ Eliminado {} ({mode}).", target.name());
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Exige confirmación para una operación destructiva.
+///
+/// `--yes` la salta. En modo `--json` o sin TTY no se pregunta: se exige
+/// `--yes` explícito. Si el usuario rechaza, la operación se cancela.
+fn ensure_confirmation(yes: bool, json: bool, label: &str) -> Result<()> {
+    if yes {
+        return Ok(());
+    }
+
+    use std::io::{IsTerminal, Write};
+    if json || !std::io::stdin().is_terminal() {
+        return Err(Error::Protocol(format!(
+            "refusing to delete {label} without confirmation; re-run with --yes"
+        )));
+    }
+
+    eprint!("¿Eliminar {label}? [y/N] ");
+    std::io::stderr()
+        .flush()
+        .map_err(|e| Error::LocalIo(e.to_string()))?;
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| Error::LocalIo(e.to_string()))?;
+
+    if matches!(input.trim(), "y" | "Y" | "yes" | "YES" | "Yes") {
+        Ok(())
+    } else {
+        eprintln!("Cancelado.");
+        Err(Error::Cancelled)
     }
 }
 

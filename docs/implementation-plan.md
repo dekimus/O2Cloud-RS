@@ -47,10 +47,10 @@ iteración.
 ## Fase 6 — CLI ✅ (parcial)
 
 - [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`, `upload`,
-  `download`.
+  `download`, `mkdir`, `cp`, `mv`, `rm`.
 - [x] Flags globales `--json`, `--verbose`, `--quiet`, `--profile`.
 - [x] `--json`: stdout solo JSON, logs a stderr, sin confirmación.
-- [ ] `tree`, `mkdir`, `cp`, `mv`, `rm` (fases siguientes).
+- [ ] `tree` (fase posterior).
 
 ## Fase 7 — Upload ✅
 
@@ -73,18 +73,27 @@ iteración.
 - [x] tests: streaming + rename, sin parcial, conflict sin `--force`, overwrite
   con `--force`, error 500 sin fichero.
 
-## Fase 9 — Operaciones de archivos
+## Fase 9 — Operaciones de archivos ✅
 
-- [ ] `mkdir`, `copy` (server-side), `move`, `softdelete`, `delete` permanente.
+- [x] `mkdir` → `POST /sapi/media/folder?action=save`.
+- [x] `cp` (server-side) → `POST /sapi/media/file?action=copy`.
+- [x] `mv` → `POST /sapi/media/folder?action=add-item` (**PARTIAL**, ver protocolo).
+- [x] `rm` (papelera) → `media/file?action=softdelete` / `media/folder?action=softdelete`.
+- [x] `rm --permanent` → `action=delete`.
+- [x] tests de forma de las peticiones (save/copy/add-item/delete/softdelete).
 
-## Fase 10 — Seguridad/UX
+## Fase 10 — Seguridad y UX ✅
 
-- [ ] confirmación de operaciones destructivas (`--yes` para automatizar).
+- [x] confirmación interactiva `¿Eliminar …? [y/N]` para `rm`.
+- [x] `--yes` (`-y`) para automatización.
+- [x] en `--json` o sin TTY no se pregunta: se exige `--yes` (si no, error).
+- [x] rechazo del usuario → `Error::Cancelled` (exit 11).
+- [x] verificado end-to-end con backend mock (y/n).
 
 ## Fase 11 — Tests
 
-- [x] Unitarios y mock HTTP para lectura, subida y descarga.
-- [ ] Ampliar a delete/copy/move cuando existan.
+- [x] Unitarios y mock HTTP para lectura, subida, descarga y mutaciones.
+- [ ] Ampliar cobertura de casos límite cuando se confirmen más endpoints.
 
 ## Fase 12 — Documentación
 
@@ -97,6 +106,6 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. `mkdir` + `copy`/`move`/`rm` server-side con confirmación.
+1. `tree` en la CLI.
 2. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.
-3. `tree` en la CLI.
+3. Confirmar `mv` (add-item/remove-item) con tráfico real.

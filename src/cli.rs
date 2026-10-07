@@ -84,4 +84,40 @@ pub enum Command {
         #[arg(long)]
         force: bool,
     },
+
+    /// Crea una carpeta remota.
+    Mkdir {
+        /// Ruta remota de la carpeta a crear.
+        remote: String,
+    },
+
+    /// Copia un elemento remoto (server-side) a una carpeta.
+    Cp {
+        /// Origen remoto (id o ruta).
+        source: String,
+        /// Carpeta remota destino.
+        dest: String,
+    },
+
+    /// Mueve un elemento remoto a una carpeta.
+    Mv {
+        /// Origen remoto (id o ruta).
+        source: String,
+        /// Carpeta remota destino.
+        dest: String,
+    },
+
+    /// Elimina un archivo o carpeta remota (a la papelera por defecto).
+    Rm {
+        /// Id o ruta remota.
+        remote: String,
+
+        /// Borrado permanente (no va a la papelera).
+        #[arg(long)]
+        permanent: bool,
+
+        /// No pedir confirmación.
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }

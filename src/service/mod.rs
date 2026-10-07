@@ -1,6 +1,7 @@
 //! Casos de uso: orquestación sin detalles HTTP.
 
 mod download;
+mod files;
 mod ls;
 mod quota;
 mod stat;
@@ -8,6 +9,10 @@ mod status;
 mod upload;
 
 pub use download::{download, DownloadOptions, DownloadOutcome};
+pub use files::{
+    copy, mkdir, move_item, remove, resolve_removable, CopyOutcome, CreatedFolder, MoveOutcome,
+    Removable,
+};
 pub use ls::{list, Listing};
 pub use quota::quota;
 pub use stat::stat;

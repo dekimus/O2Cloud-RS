@@ -18,9 +18,13 @@ en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
 - `o2cloud stat RUTA` — detalle de un archivo (id o ruta).
 - `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
 - `o2cloud download REMOTO... --to LOCAL` — descarga archivos (streaming).
+- `o2cloud mkdir REMOTO` — crea una carpeta.
+- `o2cloud cp ORIGEN DESTINO` — copia server-side.
+- `o2cloud mv ORIGEN DESTINO` — mueve (best-effort, ver protocolo).
+- `o2cloud rm REMOTO [--permanent] [-y]` — elimina (papelera por defecto).
 
-No implementado todavía: login asistido por navegador, mkdir/copy/move/rm,
-sync, FUSE. Ver `docs/implementation-plan.md`.
+No implementado todavía: login asistido por navegador, `tree`, sync, FUSE.
+Ver `docs/implementation-plan.md`.
 
 ## Requisitos
 
@@ -70,7 +74,19 @@ o2cloud upload a.txt b.txt --to /backup
 o2cloud download 1195003130 --to ./fotos/
 o2cloud download /documentos/informe.pdf --to ./informe.pdf
 o2cloud download 1195003130 --to ./informe.pdf --force
+
+o2cloud mkdir /documentos/2026
+o2cloud cp /documentos/informe.pdf /backup
+o2cloud mv 1195003130 /archivo
+o2cloud rm /documentos/viejo.pdf          # a la papelera (pide confirmación)
+o2cloud rm 1195003130 --permanent -y      # borrado permanente, sin preguntar
 ```
+
+### Operaciones destructivas
+
+`rm` pide confirmación interactiva (`¿Eliminar …? [y/N]`). Para scripts usa
+`--yes`/`-y`. En modo `--json` o sin TTY **no** se pregunta: es obligatorio
+`--yes`, y si falta se aborta con un error.
 
 Opciones globales:
 
