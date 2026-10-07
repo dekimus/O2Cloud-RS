@@ -42,23 +42,37 @@ cargo build --release
 ## Autenticación
 
 El portal usa OIDC con autenticación fuerte (SMS), por lo que no hay login
-silencioso con usuario/contraseña. Para esta primera versión se importa la
-sesión capturada del navegador:
+silencioso con usuario/contraseña. El flujo recomendado es **asistido por
+navegador**:
 
-1. Inicia sesión en `https://cloud.o2online.es`.
-2. Abre DevTools → pestaña **Network**.
-3. Haz clic en cualquier petición a `/sapi/*`.
-4. "Copy as cURL" y copia el valor de `-b '…'` (la cabecera `Cookie`, que
+```bash
+o2cloud login
+```
+
+Esto abre `https://cloud.o2online.es/login` en tu navegador. Inicia sesión
+(teléfono + SMS); después la CLI te guía para capturar la cookie de sesión:
+
+1. Abre DevTools (F12) → pestaña **Network**.
+2. Recarga y haz clic en cualquier petición a `/sapi/*`.
+3. "Copy as cURL" y copia el valor de `-b '…'` (la cabecera `Cookie`, que
    contiene `JSESSIONID` y `validationKey`).
+4. Pégala en la CLI.
+
+Para automatización (sin interacción) o si prefieres hacerlo a mano:
 
 ```bash
 o2cloud login --import-cookie 'JSESSIONID=...; validationKey=...'
+# o una sesión por variable de entorno (testing):
+export O2CLOUD_COOKIE='JSESSIONID=...; validationKey=...'
 ```
 
 La sesión se guarda en el **keyring del sistema** (nunca en texto plano).
-Para testing/automatización puedes usar `O2CLOUD_COOKIE='...'`.
 
-Si una llamada devuelve **401**, la sesión ha caducado: repite el login.
+> **Requisito del keyring (Linux):** la CLI necesita un backend de Secret
+> Service (`libdbus` + gnome-keyring/KWallet). Sin él, no se puede persistir la
+> sesión de forma segura.
+
+Si una llamada devuelve **401**, la sesión ha caducado: repite `o2cloud login`.
 
 ## Uso
 

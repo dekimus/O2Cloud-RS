@@ -1,3 +1,6 @@
+
+AGENTS.md
+MEMORY.md
 /target
 **/*.rs.bk
 Cargo.lock.orig

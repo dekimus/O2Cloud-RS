@@ -29,7 +29,10 @@ pub struct Cli {
 /// Comandos disponibles.
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Inicia sesión importando una cookie capturada en el navegador.
+    /// Inicia sesión (asistido por navegador, o importando una cookie).
+    ///
+    /// Sin opciones abre el navegador y guía la captura de la sesión. Usa
+    /// `--import-cookie`/`--import-token` para importar sin interacción.
     Login {
         /// Cabecera `Cookie` completa (contiene JSESSIONID y validationKey).
         #[arg(long)]

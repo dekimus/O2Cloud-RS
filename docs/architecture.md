@@ -61,6 +61,7 @@ src/
     mod.rs
     session.rs         Session: cookie header, extracción validationKey/JSESSIONID
     store.rs           trait SecretStore + KeyringStore + EnvStore + MemoryStore
+    browser.rs         login asistido por navegador (BrowserOpener)
   service/
     mod.rs             resolución de rutas remotas, identidad
     status.rs quota.rs ls.rs stat.rs upload.rs download.rs files.rs
@@ -136,16 +137,36 @@ pub enum Error {
 | 10 | I/O local |
 | 11 | cancelado |
 
-## 6. Sesión y secretos
+## 6. Sesión, secretos y login asistido
 
 - `Session` conserva la cabecera `Cookie` completa (JSESSIONID + validationKey
   + cookies adicionales) y deriva el `validationKey` (32-hex) y el `JSESSIONID`.
 - Almacenamiento vía `trait SecretStore`:
   - `KeyringStore` (producción): keyring del sistema (`o2cloud:<profile>`).
+    El crate `keyring` **no trae backend por defecto**; se habilita
+    `sync-secret-service` en Linux (requiere `libdbus` + Secret Service,
+    p. ej. gnome-keyring/KWallet), `apple-native` en macOS y `windows-native`
+    en Windows. Sin backend, keyring usa un *mock* no persistente.
   - `EnvStore` (testing/automatización): lee `O2CLOUD_COOKIE`.
   - `MemoryStore` (tests unitarios).
 - **Nunca** se imprimen cookies, tokens, `validationKey` ni URLs firmadas.
   `output.rs` redacta cualquier secreto en logs/errores.
+
+### Login asistido por navegador
+
+`o2cloud login` (sin opciones) delega en `auth/browser.rs`:
+
+1. Abre `https://cloud.o2online.es/login` en el navegador del sistema
+   (programa directo, sin shell) a través del trait `BrowserOpener`.
+2. Muestra instrucciones para capturar la cabecera `Cookie` de una petición
+   `/sapi/*` ("Copy as cURL").
+3. Lee la cookie pegada, la normaliza (`Session::from_cookie_header`), la
+   guarda en el keyring y devuelve la sesión.
+
+`--import-cookie`/`--import-token` siguen disponibles para automatización (sin
+interacción). `BrowserOpener` está desacoplado para poder añadir una `WebView`
+embebida más adelante sin tocar el resto.
+
 
 ## 7. Configuración
 

@@ -30,12 +30,18 @@ iteración.
 - [x] Errores tipados + mapeo de códigos.
 - [x] Tests con mock HTTP.
 
-## Fase 4 — Autenticación (importación) ✅
+## Fase 4 — Autenticación ✅
 
-- [x] `SecretStore` con keyring + env + memory.
+- [x] `SecretStore` con keyring del sistema + env + memory.
 - [x] `login --import-cookie` (y `--import-token`).
-- [x] Detección de 401 → sesión caducada.
-- [ ] Browser-assisted login (siguiente iteración).
+- [x] detección de 401 → sesión caducada.
+- [x] **login asistido por navegador**: `o2cloud login` (sin flags) abre el
+  portal en el navegador del sistema, guía la captura de la cookie
+  (`JSESSIONID` + `validationKey`) y la guarda en el keyring. Capa
+  `BrowserOpener` desacoplada (sustituible por `WebView` embebida).
+- [x] backend de keyring por plataforma (`sync-secret-service` en Linux,
+  `apple-native`/`windows-native`); el crate `keyring` no trae ninguno por
+  defecto.
 
 ## Fase 5 — Primer vertical slice ✅
 
@@ -107,5 +113,5 @@ iteración.
 ## Próximos pasos (siguiente iteración)
 
 1. `tree` en la CLI.
-2. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.
-3. Confirmar `mv` (add-item/remove-item) con tráfico real.
+2. Confirmar `mv` (add-item/remove-item) con tráfico real.
+3. WebView embebida opcional para captura automática de la sesión.

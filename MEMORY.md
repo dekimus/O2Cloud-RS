@@ -373,6 +373,17 @@ Secretos:
 -   nunca repositorio;
 -   nunca configuración normal.
 
+IMPORTANTE (keyring 3.x): el crate `keyring` **no incluye ningún backend por
+defecto**; sin una feature de backend usa un almacén *mock* no persistente
+(las sesiones "se guardan" pero no se leen en otro proceso). Hay que habilitar
+`sync-secret-service` (Linux, requiere `libdbus` + Secret Service),
+`apple-native` (macOS) o `windows-native` (Windows).
+
+Login asistido por navegador (2026-10-07): `o2cloud login` sin opciones abre
+el portal en el navegador del sistema y captura la cookie pegada por el
+usuario. La capa está desacoplada tras `BrowserOpener` para poder sustituirla
+por una `WebView` embebida.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:

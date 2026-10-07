@@ -1,7 +1,9 @@
 //! Binario CLI.
 
 use clap::Parser;
-use o2cloud::auth::{KeyringStore, SecretStore};
+use o2cloud::auth::{
+    self, BrowserOpener, KeyringStore, SecretStore, SystemBrowserOpener, INSTRUCTIONS, LOGIN_URL,
+};
 use o2cloud::cli::{Cli, Command};
 use o2cloud::config::AppConfig;
 use o2cloud::error::{Error, Result};
@@ -298,28 +300,66 @@ fn login(
     import_cookie: Option<&str>,
     import_token: Option<&str>,
 ) -> Result<()> {
-    let cookie = match (import_cookie, import_token) {
-        (Some(c), _) => c.to_string(),
-        (None, Some(t)) => format!("validationKey={t}"),
-        (None, None) => {
-            return Err(Error::Authentication(
-                "provide --import-cookie or --import-token".to_string(),
-            ));
+    match (import_cookie, import_token) {
+        (Some(cookie), _) => store_and_report(config, output, cookie),
+        (None, Some(token)) => {
+            let cookie = format!("validationKey={token}");
+            store_and_report(config, output, &cookie)
         }
-    };
+        (None, None) => browser_login(config, output),
+    }
+}
 
-    let session = Session::from_cookie_header(&cookie)?;
+/// Login asistido por navegador: abre el portal y captura la cookie pegada.
+fn browser_login(config: &AppConfig, output: Output) -> Result<()> {
+    use std::io::{IsTerminal, Write};
+
+    if !std::io::stdin().is_terminal() {
+        return Err(Error::Authentication(
+            "no interactive terminal — use 'o2cloud login --import-cookie' instead".to_string(),
+        ));
+    }
+
+    match SystemBrowserOpener.open(LOGIN_URL) {
+        Ok(()) => eprintln!("Se ha abierto el navegador en {LOGIN_URL}"),
+        Err(e) => {
+            eprintln!("No se pudo abrir el navegador ({e}).");
+            eprintln!("Abre manualmente: {LOGIN_URL}");
+        }
+    }
+    eprintln!();
+    eprintln!("{INSTRUCTIONS}");
+
+    eprint!("\nPega la cookie: ");
+    std::io::stderr()
+        .flush()
+        .map_err(|e| Error::LocalIo(e.to_string()))?;
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| Error::LocalIo(e.to_string()))?;
+
+    let cookie = input.trim();
+    if cookie.is_empty() {
+        return Err(Error::Cancelled);
+    }
+    store_and_report(config, output, cookie)
+}
+
+/// Valida, guarda en el keyring y reporta una sesión importada.
+fn store_and_report(config: &AppConfig, output: Output, cookie: &str) -> Result<()> {
+    let store = KeyringStore::new(&config.keyring_service())?;
+    let session = auth::save_session(&store, cookie)?;
+
     if !session.has_jsession_id() {
         eprintln!("Aviso: no se detectó JSESSIONID en la cookie; la sesión podría fallar con 401.");
     }
 
-    let store = KeyringStore::new(&config.keyring_service())?;
-    store.set_cookie(&cookie)?;
-
     if output.is_json() {
         output.success(&json!({ "message": "session stored in keyring" }));
     } else {
-        println!("Sesión guardada en el keyring.");
+        println!("Sesión guardada en el keyring. Comprueba con `o2cloud status`.");
     }
     Ok(())
 }
