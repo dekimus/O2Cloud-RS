@@ -255,6 +255,62 @@ No asumir que están terminadas:
 La búsqueda puede ser local sobre los listados mientras no exista
 evidencia suficiente de un endpoint.
 
+## Discrepancias entre implementaciones (2026-10-07)
+
+Comparando `dbaratech/o2cloud` (Python, flujo web) y
+`danielperez9430/o2cloud-cli` (Rust, app de escritorio) se detectaron
+diferencias relevantes. Conclusión: **son dos clientes oficiales distintos**
+(portal web vs app de escritorio) y existen dos esquemas de autenticación.
+
+### Nombre del backend
+
+-   Python dice "Funambol OneMediaHub / SAPI".
+-   Rust dice "Synchronoss OneMediaHub v31".
+
+No es una discrepancia real: **Synchronoss adquirió Funambol** y comercializa
+OneMediaHub. Ambos nombres designan el mismo producto.
+
+### Esquemas de autenticación (DOS flujos distintos)
+
+1.  **Web OIDC** (nuestro objetivo, según `AGENTS.md`):
+    `JSESSIONID` (cookie httpOnly) + `validationKey` (cookie + query), **sin**
+    cabecera `Authorization`.
+2.  **Mobile Connect (app de escritorio)** — observado en el cliente Rust:
+    -   `POST /sapi/login/mobileconnect?action=start` (form `platform`,
+        `msisdn`) → `authorizationurl`;
+    -   WebView intercepta `code`+`state` en `clientoauth.html`;
+    -   `POST /sapi/credential/mobileconnect?action=validate`
+        `{"data":{"code","state"}}` → `access_token`, `expires_in`, `msisdn`,
+        `platform`, `lastrefreshdate`;
+    -   `POST /sapi/login?action=login&responsetime=true`
+        (header `Authorization: oauth <base64>`) → `access_token`,
+        `jsessionid`, `validationkey`, `encryption-token`, `roles`;
+    -   Las llamadas envían `Authorization: oauth <base64>` **y** la cookie
+        `JSESSIONID`; permite *silent re-login* reutilizando `access_token`.
+
+Decisión: implementamos el **flujo web** (1). El flujo 2 queda documentado
+como alternativa pero no se implementa.
+
+### Endpoints que difieren
+
+| Área | Web (Python) | Escritorio (Rust) |
+| ---- | ------------ | ----------------- |
+| Listar media | `GET /media?action=get&limit=N` (sparse) + detalle aparte | `POST /media?action=get` con `{data:{fields:[…]}}` + `limit`/`offset` |
+| Subida | multipart `data`+`file` a `/sapi/upload?action=save` | 2 pasos: `/sapi/upload/file?action=save-metadata` + `action=save` (octet-stream) |
+| Borrar media | `POST /media/file?action=delete` body `{data:{files:[id]}}` | `POST /media?action=softdelete&id=<id>` |
+| Borrar carpeta | body `{data:{folders:[id]}}` | query `?id=<id>` |
+| mkdir body | `{name, parent}` | `{name, parentid, magic, creationdate, modificationdate}` |
+| Probe de sesión | `profile?action=get` | `profile/role?action=get` |
+
+Seguimos la variante **web** en todos los casos. El detalle de carpeta incluye
+`parentid` (la impl. Rust construye el árbol con él).
+
+### Nota sobre listado por carpeta
+
+El listado web de media es **a nivel de cuenta** (sin asociación fiable
+archivo→carpeta). El parámetro `?folder=<id>` se reenvía pero su
+comportamiento de filtrado no está confirmado al 100%.
+
 ## Decisiones de arquitectura
 
 Rust:

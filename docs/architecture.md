@@ -178,11 +178,10 @@ pub enum Error {
 | `clap` | CLI |
 | `thiserror` | errores tipados |
 | `keyring` | secretos |
-| `directories` | rutas de config |
 | `url` | manipulación de URLs |
 | `tracing`/`tracing-subscriber` | logging redacted a stderr |
 | `wiremock` (dev) | mock HTTP |
-| `tempfile` (dev) | tests |
 
-Se añadirán `indicatif` (progreso), `time`/`chrono` (fechas), multipart, etc.
-cuando lleguen las fases de upload/download.
+Se añadirán `indicatif` (progreso), `time`/`chrono` (fechas), multipart,
+`directories` (cuando se persista un archivo de config), etc. cuando lleguen
+las fases de upload/download/config.
