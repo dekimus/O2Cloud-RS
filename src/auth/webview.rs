@@ -32,12 +32,12 @@ const OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// Mensaje de ayuda cuando la `WebView` no funciona.
 pub const TROUBLESHOOTING: &str = "\
-Sugerencias:
-  - Fuerza X11:            export GDK_BACKEND=x11
-  - Alterna el backend:    export O2CLOUD_WEBVIEW_BACKEND=wayland
-  - Desactiva el sandbox de WebKitGTK (menos seguro):
+Sugerencias (el renderizador DMABUF/compositing ya está desactivado por defecto):
+  - Forzar X11:            export GDK_BACKEND=x11
+  - Renderizado software:  export LIBGL_ALWAYS_SOFTWARE=1
+  - Desactivar el sandbox de WebKitGTK (menos seguro):
         export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-  - O usa la importación manual:
+  - Importación manual:
         o2cloud login --import-cookie '<Cookie: ...>'";
 
 /// Resultado de la captura con la `WebView`.
@@ -56,7 +56,7 @@ pub enum CaptureOutcome {
 /// Bloquea hasta capturar las cookies, cerrar la ventana o agotar el tiempo.
 #[must_use]
 pub fn capture_cookie_header() -> CaptureOutcome {
-    prefer_x11_backend();
+    configure_graphics();
 
     if let Err(e) = gtk::init() {
         return CaptureOutcome::Unavailable(format!("cannot initialize GTK (no display?): {e}"));
@@ -146,6 +146,29 @@ pub fn capture_cookie_header() -> CaptureOutcome {
         CaptureOutcome::Unavailable(
             "the login page did not load (WebKit network process or GPU/backend issue)".to_string(),
         )
+    }
+}
+
+/// Configura el entorno gráfico para maximizar la compatibilidad en Linux.
+///
+/// - Prefiere X11/XWayland (`GDK_BACKEND`), más fiable con `WebKitGTK`.
+/// - Desactiva el renderizador DMABUF y el *compositing* de `WebKitGTK`.
+///   Sin esto, en muchos entornos (renderizado software, contenedores,
+///   drivers, `XWayland`) aparece `Failed to create GBM buffer` y la página
+///   queda en blanco.
+///
+/// Todos los valores respetan una variable de entorno ya definida, de modo
+/// que se pueden sobrescribir.
+fn configure_graphics() {
+    prefer_x11_backend();
+    set_env_default("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    set_env_default("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+}
+
+/// Define `key=value` solo si la variable no está ya definida.
+fn set_env_default(key: &str, value: &str) {
+    if std::env::var_os(key).is_none() {
+        std::env::set_var(key, value);
     }
 }
 

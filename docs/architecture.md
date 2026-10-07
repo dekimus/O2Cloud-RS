@@ -177,7 +177,9 @@ de crear el runtime async (necesita el hilo principal). Requiere WebKitGTK 4.1 +
 GTK3; por eso es una feature opt-in y no rompe builds sin esas librerías.
 
 Se prefiere **X11/XWayland** (variable `GDK_BACKEND`, configurable con
-`O2CLOUD_WEBVIEW_BACKEND`). Si la `WebView` no puede inicializarse o la página
+`O2CLOUD_WEBVIEW_BACKEND`) y se **desactiva el renderizador DMABUF y el
+compositing** de `WebKitGTK` (causa habitual de `Failed to create GBM buffer`
+y página en blanco). Si la `WebView` no puede inicializarse o la página
 no carga en un tiempo, se devuelve `CaptureOutcome::Unavailable` y la CLI cae
 al login con el navegador del sistema (con sugerencias de diagnóstico).
 
