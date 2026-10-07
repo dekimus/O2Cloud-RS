@@ -189,6 +189,8 @@ cargo run --release --features gui,webview --bin o2cloud-gui
 - `docs/protocol.md` — especificación del protocolo SAPI reverse-engineered.
 - `docs/architecture.md` — diseño y capas.
 - `docs/implementation-plan.md` — estado de las fases.
+- `docs/security-review.md` — auditoría de seguridad.
+- `SECURITY.md` — modelo de seguridad y cómo reportar.
 - `MEMORY.md` — conocimiento técnico persistente.
 
 ## Desarrollo

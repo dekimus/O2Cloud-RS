@@ -86,9 +86,19 @@ impl SecretStore for EnvStore {
 }
 
 /// Almacén en memoria (tests y casos de uso sin keyring).
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MemoryStore {
     cookie: std::sync::Mutex<Option<String>>,
+}
+
+impl std::fmt::Debug for MemoryStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Nunca exponer la cookie almacenada.
+        let has_cookie = self.cookie.lock().is_ok_and(|c| c.is_some());
+        f.debug_struct("MemoryStore")
+            .field("has_cookie", &has_cookie)
+            .finish()
+    }
 }
 
 impl MemoryStore {

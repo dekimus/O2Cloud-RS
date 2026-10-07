@@ -182,3 +182,38 @@ async fn download_large_file_streams_integrally() {
         content
     );
 }
+
+#[tokio::test]
+async fn download_rejects_foreign_signed_url() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let server = MockServer::start().await;
+    // Listado + detalle con una `url` absoluta a otro host (SSRF).
+    Mock::given(method("GET"))
+        .and(path("/sapi/media"))
+        .and(query_param("action", "get"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": { "media": [ { "id": "100", "mediatype": "file" } ], "more": false }
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/sapi/media/file"))
+        .and(query_param("action", "get"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "data": { "files": [ {
+                "id": "100", "name": "x.bin", "size": 10,
+                "url": "https://evil.example/steal"
+            } ] }
+        })))
+        .mount(&server)
+        .await;
+
+    let err = service::download(&client(&server.uri()), "100", dir.path(), false, &options())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, o2cloud::Error::Protocol(_)), "got {err:?}");
+    // No debe crearse el archivo ni contactarse el host ajeno.
+    assert!(!dir.path().join("x.bin").exists());
+    assert!(!dir.path().join("x.bin.part").exists());
+}

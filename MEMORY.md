@@ -463,6 +463,27 @@ activa; `capture_cookie_header` se ejecuta en un **hilo secundario**, se ha
 verificado que GTK funciona ahí), botón de **abrir navegador** del sistema y
 campo para pegar la cookie.
 
+## Seguridad (revisión 2026-10-07)
+
+Revisión completa en `docs/security-review.md` y política en `SECURITY.md`. Se
+corrigieron 7 puntos; los más relevantes:
+
+-   **SSRF/fuga de cookie (ALTO)**: la descarga de `url` firmada se restringe al
+    mismo host/esquema (antes una `url` absoluta ajena habría recibido la cookie).
+-   **Firmas `k=…` no redactadas (MEDIO)**: `redact_secrets` cubre ahora `k`,
+    `signature`, `token`, etc., con límite de clave (no enmascara `link=`).
+-   **`Debug` derivado en `Session`/`MediaItem`/`MemoryStore` (MEDIO/BAJO)**:
+    implementaciones manuales que redactan cookie/validationKey/url.
+-   **Inyección de argumentos del navegador (BAJO)**: se valida `http(s)://`.
+-   **Cookie visible en la GUI (BAJO)**: campo enmascarado.
+
+Verificado correcto: TLS siempre verificado (rustls), sin `unsafe`, sin shell ni
+`eval`, secretos solo en keyring/env, redacción en errores/logs, `url` con
+`skip_serializing`, saneado anti-traversal y `.part`+rename atómico.
+
+Riesgo residual: `login --import-cookie` expone el secreto en `ps`/historial
+(usar WebView/navegador). Recomendado ejecutar `cargo audit` en CI.
+
 ## Fuentes externas
 
 1.  Telefónica, anuncio oficial de 10 TB:

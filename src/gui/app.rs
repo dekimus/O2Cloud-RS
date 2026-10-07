@@ -430,9 +430,10 @@ impl O2CloudApp {
             ui.separator();
             ui.label("… o pega la cabecera Cookie (JSESSIONID + validationKey) / «Copy as cURL»:");
             ui.add(
-                egui::TextEdit::multiline(&mut self.state.inputs.cookie)
-                    .desired_rows(3)
-                    .desired_width(f32::INFINITY),
+                egui::TextEdit::singleline(&mut self.state.inputs.cookie)
+                    .password(true)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("JSESSIONID=…; validationKey=…"),
             );
             ui.horizontal(|ui| {
                 if ui.button("Guardar sesión").clicked() {

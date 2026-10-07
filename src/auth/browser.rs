@@ -48,6 +48,13 @@ pub struct SystemBrowserOpener;
 
 impl BrowserOpener for SystemBrowserOpener {
     fn open(&self, url: &str) -> Result<()> {
+        // Evita inyección de argumentos al lanzador: solo http(s).
+        if !(url.starts_with("https://") || url.starts_with("http://")) {
+            return Err(Error::Protocol(
+                "refusing to open a non-http(s) URL".to_string(),
+            ));
+        }
+
         let program = if cfg!(target_os = "macos") {
             "open"
         } else if cfg!(target_os = "windows") {

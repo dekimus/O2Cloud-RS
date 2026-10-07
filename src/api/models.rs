@@ -143,7 +143,7 @@ pub struct Folder {
 /// El listado sparse solo trae `id`, `date`, `mediatype`, `status`, `userid`;
 /// los campos de detalle (`name`, `size`, `url`, …) llegan con
 /// `POST /sapi/media/file?action=get`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct MediaItem {
     /// Identificador del elemento (string en el flujo web).
     pub id: Id,
@@ -184,6 +184,21 @@ pub struct MediaItem {
     /// URL firmada de descarga. **Nunca se serializa** (secreto).
     #[serde(default, skip_serializing)]
     pub url: Option<String>,
+}
+
+impl std::fmt::Debug for MediaItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // `url` es una URL firmada: no exponerla en debug/logs.
+        f.debug_struct("MediaItem")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("size", &self.size)
+            .field("mediatype", &self.mediatype)
+            .field("status", &self.status)
+            .field("folder", &self.folder)
+            .field("has_url", &self.url.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 /// Listado sparse de media: `data{media[], more}`.

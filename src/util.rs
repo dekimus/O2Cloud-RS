@@ -1,41 +1,85 @@
 //! Utilidades de texto, formato y redacción de secretos.
 
-/// Redacta fragmentos sensibles (`validationkey=...`, `JSESSIONID=...`) de una
-/// cadena arbitraria, para poder escribir logs y errores sin filtrar secretos.
+/// Redacta fragmentos sensibles (`validationkey=…`, `JSESSIONID=…`, firmas
+/// `k=…`, tokens…) de una cadena arbitraria, para poder escribir logs y errores
+/// sin filtrar secretos.
 ///
-/// Busca las claves de forma insensible a mayúsculas y enmascara el valor que
-/// les sigue hasta el siguiente delimitador (`&`, espacio, `;`, comillas, …).
+/// Solo considera la clave cuando va al inicio o precedida de un delimitador de
+/// parámetro/cookie (`?`, `&`, `;`, espacio, …), para no enmascarar palabras que
+/// contengan la clave (p. ej. `link=` no debe redactarse).
 #[must_use]
 pub fn redact_secrets(input: &str) -> String {
-    const SENSITIVE_KEYS: &[&str] = &["validationkey", "jsessionid"];
+    const SENSITIVE_KEYS: &[&str] = &[
+        "validationkey",
+        "jsessionid",
+        "access_token",
+        "accesstoken",
+        "refreshtoken",
+        "encryption-token",
+        "signature",
+        "token",
+        "pat",
+        "k",
+    ];
+
     let mut out = input.to_string();
-
     for key in SENSITIVE_KEYS {
-        let mut search_start = 0usize;
-        while let Some(rel) = find_ci_from(&out, key, search_start) {
-            let after_key = rel + key.len();
-
-            // Saltar espacios en blanco entre la clave y el `=`.
-            let mut eq = after_key;
-            while eq < out.len() && out.as_bytes()[eq] == b' ' {
-                eq += 1;
-            }
-            if eq >= out.len() || out.as_bytes()[eq] != b'=' {
-                search_start = after_key;
-                continue;
-            }
-
-            let value_start = eq + 1;
-            let value_end = out[value_start..]
-                .find(|c: char| ['&', ' ', ';', '"', '\'', '\n', '\r', ',', '}'].contains(&c))
-                .map_or(out.len(), |p| value_start + p);
-
-            out.replace_range(value_start..value_end, "[REDACTED]");
-            search_start = value_start + "[REDACTED]".len();
-        }
+        redact_key(&mut out, key);
     }
-
     out
+}
+
+fn redact_key(out: &mut String, key: &str) {
+    let mut search_start = 0usize;
+    while let Some(rel) = find_ci_from(out, key, search_start) {
+        let after_key = rel + key.len();
+
+        if !is_param_boundary(out, rel) {
+            search_start = after_key;
+            continue;
+        }
+
+        // Saltar espacios en blanco entre la clave y el `=`.
+        let mut eq = after_key;
+        while eq < out.len() && out.as_bytes()[eq] == b' ' {
+            eq += 1;
+        }
+        if eq >= out.len() || out.as_bytes()[eq] != b'=' {
+            search_start = after_key;
+            continue;
+        }
+
+        let value_start = eq + 1;
+        let value_end = out[value_start..]
+            .find(|c: char| ['&', ' ', ';', '"', '\'', '\n', '\r', ',', '}', '|'].contains(&c))
+            .map_or(out.len(), |p| value_start + p);
+
+        out.replace_range(value_start..value_end, "[REDACTED]");
+        search_start = value_start + "[REDACTED]".len();
+    }
+}
+
+/// `true` si la posición `pos` es un inicio o un delimitador de clave.
+fn is_param_boundary(s: &str, pos: usize) -> bool {
+    if pos == 0 {
+        return true;
+    }
+    matches!(
+        s.as_bytes()[pos - 1],
+        b'?' | b'&'
+            | b';'
+            | b' '
+            | b'\t'
+            | b','
+            | b'"'
+            | b'\''
+            | b'('
+            | b'['
+            | b'{'
+            | b'\n'
+            | b'\r'
+            | b'|'
+    )
 }
 
 /// Busca `needle` en `haystack` a partir del byte `from`, ignorando
@@ -144,6 +188,20 @@ mod tests {
     #[test]
     fn leaves_innocent_strings_untouched() {
         let s = "GET /sapi/media?action=get — ok";
+        assert_eq!(redact_secrets(s), s);
+    }
+
+    #[test]
+    fn redacts_signed_download_signature() {
+        let out = redact_secrets("/sapi/download/file?action=get&k=GSw6PaXbsoCd&node=2i196");
+        assert!(out.contains("k=[REDACTED]"), "{out}");
+        assert!(!out.contains("GSw6PaXbsoCd"), "{out}");
+        assert!(out.contains("node=2i196"), "{out}");
+    }
+
+    #[test]
+    fn does_not_redact_key_inside_words() {
+        let s = "link=https://example/x; back=1";
         assert_eq!(redact_secrets(s), s);
     }
 

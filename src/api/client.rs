@@ -292,9 +292,22 @@ impl O2CloudClient {
         progress: &ProgressReporter,
     ) -> Result<u64> {
         let absolute = absolutize(&self.base_url, signed_url);
-        tracing::debug!(path = %Url::parse(&absolute).map(|u| u.path().to_string()).unwrap_or_default(), "download request");
+        let base = Url::parse(&self.base_url)
+            .map_err(|e| Error::Protocol(format!("invalid base URL: {e}")))?;
+        let url = Url::parse(&absolute)
+            .map_err(|e| Error::Protocol(format!("invalid signed URL: {e}")))?;
 
-        let mut req = self.transfer_http.get(&absolute);
+        // Evitar SSRF / fuga de cookies: la URL firmada debe ser del mismo host
+        // y esquema que el configurado (nunca seguir un `url` absoluto ajeno).
+        if url.host_str() != base.host_str() || url.scheme() != base.scheme() {
+            return Err(Error::Protocol(
+                "refusing to download from a different host".to_string(),
+            ));
+        }
+
+        tracing::debug!(path = %url.path(), "download request");
+
+        let mut req = self.transfer_http.get(url);
         if let Some(session) = &self.session {
             req = req.header(COOKIE, session.cookie_header());
         }

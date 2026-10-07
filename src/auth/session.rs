@@ -8,11 +8,22 @@ use crate::util::{find_ci_from, is_hex32};
 /// Guarda la cabecera `Cookie` completa (que contiene `JSESSIONID` +
 /// `validationKey` + cualquier otra cookie) y deriva de ella el
 /// `validationKey` (32 hex) que debe viajar además como query param.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Session {
     cookie: String,
     validation_key: String,
     jsession_id: Option<String>,
+}
+
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Nunca exponer la cookie ni el `validationKey` en logs/debug.
+        f.debug_struct("Session")
+            .field("cookie", &"[REDACTED]")
+            .field("validation_key", &"[REDACTED]")
+            .field("has_jsession_id", &self.jsession_id.is_some())
+            .finish()
+    }
 }
 
 impl Session {
