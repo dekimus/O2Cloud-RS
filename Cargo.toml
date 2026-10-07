@@ -28,6 +28,7 @@ eframe = { version = "0.36", optional = true }
 egui = { version = "0.36", optional = true }
 futures-util = "0.3"
 indicatif = "0.17"
+rfd = { version = "0.17", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -43,7 +44,7 @@ url = "2"
 # Login con WebView embebida (requiere WebKitGTK 4.1 + GTK3 en Linux).
 webview = ["dep:wry", "dep:gtk"]
 # Interfaz gráfica nativa (eframe/egui).
-gui = ["dep:eframe", "dep:egui"]
+gui = ["dep:eframe", "dep:egui", "dep:rfd"]
 
 # Backend de keyring por plataforma (el crate no trae ninguno por defecto).
 [target.'cfg(target_os = "macos")'.dependencies]

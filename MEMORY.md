@@ -446,7 +446,10 @@ left,right}` mostrados dentro de un `Ui` (ya no `TopBottomPanel`/`SidePanel`).
 Arquitectura: view-model puro y testeable (`gui/state.rs`) + puente async
 (`gui/worker.rs`: hilo con runtime tokio, `Command`/`Event` por canal y
 `Context::request_repaint`) + UI (`gui/app.rs`). Reutiliza la misma librería que
-la CLI.
+la CLI. La subida/descarga muestran progreso: `ProgressReporter` es un sink
+opcional (`ProgressSink`) con implementaciones `indicatif` (CLI) y callback
+(GUI); las opciones `UploadOptions`/`DownloadOptions` aceptan `reporter`. Los
+diálogos de archivo usan `rfd` (portal XDG, sin GTK).
 
 ## Fuentes externas
 

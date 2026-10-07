@@ -269,7 +269,9 @@ con `eframe`/`egui` (0.36). Es un binario aparte (`o2cloud-gui`) activado con
   de borrado.
 
 Vistas: explorador (navegación por id de carpeta, crear/subir/descargar/mover/
-borrar), cuenta (estado + cuota) y sesión (importar cookie / logout).
+borrar), cuenta (estado + cuota) y sesión (importar cookie / logout). La subida
+y descarga muestran **progreso** (el `service` acepta un `ProgressReporter`
+alternativo) y los campos locales usan **diálogos nativos** (`rfd`).
 
 ## 13. Tests
 
@@ -301,6 +303,7 @@ borrar), cuenta (estado + cuota) y sesión (importar cookie / logout).
 | `tempfile` (dev) | ficheros temporales en tests |
 | `wry` + `gtk` (opcional, `webview`) | WebView embebida (Linux) |
 | `eframe` + `egui` (opcional, `gui`) | interfaz gráfica nativa |
+| `rfd` (opcional, `gui`) | diálogos de archivo nativos (portal XDG) |
 
 Se añadirán `directories` (cuando se persista un archivo de config) y otras
 cuando lleguen las fases de download/config.

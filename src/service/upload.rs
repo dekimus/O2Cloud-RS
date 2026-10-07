@@ -13,6 +13,9 @@ use crate::progress::ProgressReporter;
 pub struct UploadOptions {
     /// Mostrar barra de progreso (stderr).
     pub show_progress: bool,
+    /// Reportero de progreso alternativo (p. ej. la GUI); si se indica,
+    /// tiene prioridad sobre `show_progress`.
+    pub reporter: Option<ProgressReporter>,
     /// Número máximo de sondeos de validación.
     pub max_polls: u32,
     /// Retardo inicial del backoff de validación.
@@ -25,6 +28,7 @@ impl Default for UploadOptions {
     fn default() -> Self {
         Self {
             show_progress: false,
+            reporter: None,
             max_polls: 10,
             initial_delay: Duration::from_millis(300),
             max_delay: Duration::from_millis(3000),
@@ -78,7 +82,11 @@ pub async fn upload(
         .ok_or_else(|| Error::LocalIo(format!("invalid file name: {}", local.display())))?
         .to_string();
 
-    let progress = ProgressReporter::new(size, options.show_progress);
+    let progress = options
+        .reporter
+        .clone()
+        .unwrap_or_else(|| ProgressReporter::indicatif(options.show_progress));
+    progress.set_length(size);
     progress.set_message(format!("Subiendo {name}"));
 
     let result = match client

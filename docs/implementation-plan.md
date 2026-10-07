@@ -128,6 +128,8 @@ iteración.
 - [x] view-model testeable (`gui/state.rs`) + puente async (`gui/worker.rs`).
 - [x] vistas: explorador (navegar/crear/subir/descargar/mover/borrar), cuenta
   (estado + cuota), sesión (importar cookie / logout).
+- [x] progreso de subida/descarga (`ProgressReporter` con callback) y diálogos
+  de archivo nativos (`rfd`).
 - [x] verificado que arranca (smoke test bajo Xvfb).
 
 ## Próximos pasos (siguiente iteración)

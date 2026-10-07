@@ -35,6 +35,7 @@ impl O2CloudApp {
                     self.state.folders = listing.folders;
                     self.state.files = listing.files;
                 }
+                Event::Progress(event) => self.state.apply_progress(event),
                 Event::Message(message) => {
                     self.state.message = Some(message);
                     self.state.error = None;
@@ -90,6 +91,11 @@ impl O2CloudApp {
                     ui.colored_label(egui::Color32::LIGHT_RED, format!("⚠ {error}"));
                 } else if let Some(message) = &self.state.message {
                     ui.colored_label(egui::Color32::LIGHT_GREEN, format!("✓ {message}"));
+                } else if let Some(progress) = &self.state.progress {
+                    ui.add(egui::ProgressBar::new(progress.fraction()).text(format!(
+                        "{}  {}/{}",
+                        progress.message, progress.done, progress.total
+                    )));
                 } else {
                     ui.label("Listo.");
                 }
@@ -167,7 +173,14 @@ impl O2CloudApp {
 
         ui.separator();
         ui.label("Subir archivo (ruta local):");
-        ui.text_edit_singleline(&mut self.state.inputs.upload_local);
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.state.inputs.upload_local);
+            if ui.button("…").clicked() {
+                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                    self.state.inputs.upload_local = path.display().to_string();
+                }
+            }
+        });
         if ui.button("Subir").clicked() {
             if let Some(folder) = self.state.current_id().cloned() {
                 let local = self.state.inputs.upload_local.trim().to_string();
@@ -183,7 +196,19 @@ impl O2CloudApp {
             ui.label(format!("Seleccionado: {name}"));
 
             ui.label("Descargar a (ruta local):");
-            ui.text_edit_singleline(&mut self.state.inputs.download_dest);
+            let default_name = self.state.selected_name().map(str::to_string);
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(&mut self.state.inputs.download_dest);
+                if ui.button("…").clicked() {
+                    let mut dialog = rfd::FileDialog::new();
+                    if let Some(name) = &default_name {
+                        dialog = dialog.set_file_name(name);
+                    }
+                    if let Some(path) = dialog.save_file() {
+                        self.state.inputs.download_dest = path.display().to_string();
+                    }
+                }
+            });
             if ui.button("Descargar").clicked() {
                 let dest = self.state.inputs.download_dest.trim().to_string();
                 if !dest.is_empty() {

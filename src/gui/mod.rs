@@ -8,7 +8,7 @@ pub mod state;
 mod worker;
 
 pub use app::O2CloudApp;
-pub use state::{AppState, DeleteRequest, Inputs, Tab};
+pub use state::{AppState, DeleteRequest, Inputs, Progress, Tab};
 pub use worker::{Command, Event, Worker};
 
 use eframe::egui;

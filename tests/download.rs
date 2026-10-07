@@ -50,6 +50,7 @@ fn options() -> DownloadOptions {
     DownloadOptions {
         show_progress: false,
         force: false,
+        ..Default::default()
     }
 }
 
@@ -111,6 +112,7 @@ async fn download_overwrites_with_force() {
     let opts = DownloadOptions {
         show_progress: false,
         force: true,
+        ..Default::default()
     };
     service::download(&client(&server.uri()), "100", dir.path(), false, &opts)
         .await

@@ -42,4 +42,4 @@ pub use api::models::{Folder, Id, MediaItem, MediaListing, Profile, Quota};
 pub use auth::session::Session;
 pub use config::AppConfig;
 pub use error::{Error, Result};
-pub use progress::ProgressReporter;
+pub use progress::{ProgressEvent, ProgressReporter, ProgressSink};

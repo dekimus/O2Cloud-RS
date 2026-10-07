@@ -11,6 +11,7 @@ use crate::api::models::{Folder, Id, Quota};
 use crate::auth::{self, KeyringStore, SecretStore};
 use crate::config::AppConfig;
 use crate::error::Result;
+use crate::progress::{ProgressEvent, ProgressReporter};
 use crate::service::{self, DownloadOptions, StatusInfo, UploadOptions};
 use crate::O2CloudClient;
 
@@ -52,6 +53,8 @@ pub enum Event {
     Quota(Quota),
     /// Contenido de una carpeta.
     Listing(service::Listing),
+    /// Progreso de una transferencia.
+    Progress(ProgressEvent),
     /// Mensaje de éxito.
     Message(String),
     /// Error.
@@ -79,7 +82,7 @@ impl Worker {
                 .expect("failed to build tokio runtime");
             while let Ok(command) = cmd_rx.recv() {
                 emit(&evt_tx, &ctx, Event::Busy(true));
-                match runtime.block_on(run_command(command)) {
+                match runtime.block_on(run_command(command, &evt_tx, &ctx)) {
                     Ok(events) => {
                         for event in events {
                             emit(&evt_tx, &ctx, event);
@@ -114,6 +117,16 @@ fn emit(tx: &Sender<Event>, ctx: &egui::Context, event: Event) {
     ctx.request_repaint();
 }
 
+/// Reportero de progreso que reenvía cada evento a la UI.
+fn progress_reporter(tx: &Sender<Event>, ctx: &egui::Context) -> ProgressReporter {
+    let tx = tx.clone();
+    let ctx = ctx.clone();
+    ProgressReporter::callback(move |event| {
+        let _ = tx.send(Event::Progress(event));
+        ctx.request_repaint();
+    })
+}
+
 /// Construye un cliente con la sesión almacenada (puede no haber sesión).
 fn make_client() -> Result<O2CloudClient> {
     let config = AppConfig::new(None);
@@ -125,7 +138,11 @@ fn keyring() -> Result<KeyringStore> {
     KeyringStore::new(&AppConfig::new(None).keyring_service())
 }
 
-async fn run_command(command: Command) -> Result<Vec<Event>> {
+async fn run_command(
+    command: Command,
+    tx: &Sender<Event>,
+    ctx: &egui::Context,
+) -> Result<Vec<Event>> {
     match command {
         Command::SaveSession(cookie) => {
             let session = auth::save_session(&keyring()?, &cookie)?;
@@ -140,14 +157,19 @@ async fn run_command(command: Command) -> Result<Vec<Event>> {
             keyring()?.clear()?;
             Ok(vec![Event::Message("Sesión eliminada.".to_string())])
         }
-        _ => {
+        other => {
             let client = make_client()?;
-            run_client_command(&client, command).await
+            run_client_command(&client, other, tx, ctx).await
         }
     }
 }
 
-async fn run_client_command(client: &O2CloudClient, command: Command) -> Result<Vec<Event>> {
+async fn run_client_command(
+    client: &O2CloudClient,
+    command: Command,
+    tx: &Sender<Event>,
+    ctx: &egui::Context,
+) -> Result<Vec<Event>> {
     match command {
         Command::Init => {
             let status = service::status(client).await?;
@@ -190,7 +212,10 @@ async fn run_client_command(client: &O2CloudClient, command: Command) -> Result<
                 client,
                 Path::new(&local),
                 &folder,
-                &UploadOptions::default(),
+                &UploadOptions {
+                    reporter: Some(progress_reporter(tx, ctx)),
+                    ..Default::default()
+                },
             )
             .await?;
             Ok(vec![Event::Message(format!(
@@ -204,7 +229,10 @@ async fn run_client_command(client: &O2CloudClient, command: Command) -> Result<
                 &remote,
                 Path::new(&dest),
                 false,
-                &DownloadOptions::default(),
+                &DownloadOptions {
+                    reporter: Some(progress_reporter(tx, ctx)),
+                    ..Default::default()
+                },
             )
             .await?;
             Ok(vec![Event::Message(format!(

@@ -24,6 +24,7 @@ fn fast_options() -> UploadOptions {
         max_polls: 3,
         initial_delay: Duration::from_millis(1),
         max_delay: Duration::from_millis(1),
+        ..Default::default()
     }
 }
 

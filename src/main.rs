@@ -226,6 +226,7 @@ async fn run(cli: &Cli, output: Output) -> Result<()> {
             let options = service::DownloadOptions {
                 show_progress: show_progress(cli, output),
                 force: *force,
+                ..Default::default()
             };
             let mut outcomes = Vec::with_capacity(remotes.len());
             for remote in remotes {

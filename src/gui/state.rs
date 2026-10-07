@@ -1,6 +1,7 @@
 //! Estado de la GUI (view-model, sin dependencias de UI) — testeable.
 
 use crate::api::models::{Folder, Id, MediaItem, Quota};
+use crate::progress::ProgressEvent;
 use crate::service::StatusInfo;
 
 /// Pestaña activa.
@@ -43,6 +44,30 @@ pub struct DeleteRequest {
     pub permanent: bool,
 }
 
+/// Progreso de una transferencia.
+#[derive(Debug, Clone, Default)]
+pub struct Progress {
+    /// Mensaje (nombre del archivo).
+    pub message: String,
+    /// Bytes transferidos.
+    pub done: u64,
+    /// Total en bytes (0 si se desconoce).
+    pub total: u64,
+}
+
+impl Progress {
+    /// Fracción completada en `0.0..=1.0`.
+    #[must_use]
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    pub fn fraction(&self) -> f32 {
+        if self.total == 0 {
+            0.0
+        } else {
+            (self.done as f64 / self.total as f64).clamp(0.0, 1.0) as f32
+        }
+    }
+}
+
 /// Estado completo de la aplicación.
 #[derive(Debug, Default)]
 pub struct AppState {
@@ -70,6 +95,8 @@ pub struct AppState {
     pub inputs: Inputs,
     /// Borrado pendiente de confirmación.
     pub pending_delete: Option<DeleteRequest>,
+    /// Progreso de la transferencia en curso.
+    pub progress: Option<Progress>,
 }
 
 impl AppState {
@@ -140,6 +167,22 @@ impl AppState {
             .iter()
             .find(|file| file.id.as_str() == id)
             .and_then(|file| file.name.as_deref())
+    }
+
+    /// Aplica un evento de progreso al estado.
+    pub fn apply_progress(&mut self, event: ProgressEvent) {
+        match event {
+            ProgressEvent::Finish(_) | ProgressEvent::Fail(_) => self.progress = None,
+            other => {
+                let progress = self.progress.get_or_insert_with(Progress::default);
+                match other {
+                    ProgressEvent::Length(total) => progress.total = total,
+                    ProgressEvent::Message(message) => progress.message = message,
+                    ProgressEvent::Inc(delta) => progress.done += delta,
+                    ProgressEvent::Finish(_) | ProgressEvent::Fail(_) => {}
+                }
+            }
+        }
     }
 }
 

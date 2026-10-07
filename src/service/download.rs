@@ -15,6 +15,8 @@ pub struct DownloadOptions {
     pub show_progress: bool,
     /// Sobrescribir el fichero local si ya existe.
     pub force: bool,
+    /// Reportero de progreso alternativo (p. ej. la GUI).
+    pub reporter: Option<ProgressReporter>,
 }
 
 /// Resultado de una descarga.
@@ -68,7 +70,11 @@ pub async fn download(
     let _ = tokio::fs::remove_file(&part).await;
 
     let expected = item.size.and_then(|s| u64::try_from(s).ok());
-    let progress = ProgressReporter::new(expected.unwrap_or(0), options.show_progress);
+    let progress = options
+        .reporter
+        .clone()
+        .unwrap_or_else(|| ProgressReporter::indicatif(options.show_progress));
+    progress.set_length(expected.unwrap_or(0));
     progress.set_message(format!("Descargando {name}"));
 
     match client
