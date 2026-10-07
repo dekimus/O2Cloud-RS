@@ -190,6 +190,29 @@ pub struct MediaListing {
     pub more: bool,
 }
 
+/// Respuesta del endpoint de subida: `{success, id, etag, status, type}`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UploadResult {
+    #[serde(default)]
+    pub success: bool,
+    #[serde(default)]
+    pub id: Option<Id>,
+    #[serde(default)]
+    pub etag: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(rename = "type", default)]
+    pub kind: Option<String>,
+}
+
+/// Entrada de estado de validación tras una subida.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationEntry {
+    pub id: Id,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
 /// Perfil de cuenta (parcial; tolerante a campos desconocidos).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Profile {

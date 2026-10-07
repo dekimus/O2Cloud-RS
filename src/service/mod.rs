@@ -4,15 +4,18 @@ mod ls;
 mod quota;
 mod stat;
 mod status;
+mod upload;
 
 pub use ls::{list, Listing};
 pub use quota::quota;
 pub use stat::stat;
 pub use status::{status, StatusInfo};
+pub use upload::{upload, UploadOptions, UploadOutcome};
 
-use serde_json::Value;
-
+use crate::api::client::O2CloudClient;
 use crate::api::models::{Folder, Id};
+use crate::error::{Error, Result};
+use serde_json::Value;
 
 /// Resuelve una ruta remota (p. ej. `/fotos/2024`) a una carpeta, usando
 /// `parentid` cuando el backend lo proporciona y con fallback por nombre.
@@ -48,6 +51,14 @@ pub(crate) fn resolve_folder<'a>(path: &str, folders: &'a [Folder]) -> Option<&'
         let last = parts.last()?;
         folders.iter().find(|f| f.name == *last)
     })
+}
+
+/// Resuelve una ruta remota a un id de carpeta, consultando el listado.
+pub async fn resolve_folder_id(client: &O2CloudClient, remote: &str) -> Result<Id> {
+    let folders = client.folders().list().await?;
+    resolve_folder(remote, &folders)
+        .map(|folder| folder.id.clone())
+        .ok_or_else(|| Error::NotFound(format!("remote folder '{remote}' not found")))
 }
 
 /// Extrae una etiqueta de identidad legible del perfil (tolerante a la forma).

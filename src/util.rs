@@ -65,6 +65,29 @@ pub fn is_hex32(s: &str) -> bool {
     s.len() == 32 && s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Instante actual formateado como `YYYYMMDDThhmmssZ` (UTC compacto).
+///
+/// Es el formato que exige el backend en `creationdate`/`modificationdate`;
+/// epoch-ms se rechaza con `COM-1008`.
+#[must_use]
+pub fn compact_utc_now() -> String {
+    format_compact_utc(time::OffsetDateTime::now_utc())
+}
+
+/// Formatea un `OffsetDateTime` como `YYYYMMDDThhmmssZ`.
+#[must_use]
+pub fn format_compact_utc(dt: time::OffsetDateTime) -> String {
+    format!(
+        "{:04}{:02}{:02}T{:02}{:02}{:02}Z",
+        dt.year(),
+        dt.month() as u8,
+        dt.day(),
+        dt.hour(),
+        dt.minute(),
+        dt.second()
+    )
+}
+
 /// Formatea un tamaño en bytes de forma legible (unidades binarias).
 #[must_use]
 #[allow(clippy::cast_precision_loss)] // formato legible: la precisión f64 sobra.
@@ -130,5 +153,11 @@ mod tests {
         assert_eq!(format_bytes(0), "0 B");
         assert_eq!(format_bytes(1024), "1.0 KiB");
         assert_eq!(format_bytes(1_099_511_627_776), "1.0 TiB");
+    }
+
+    #[test]
+    fn formats_compact_utc() {
+        let dt = time::OffsetDateTime::from_unix_timestamp(1_705_314_645).unwrap();
+        assert_eq!(format_compact_utc(dt), "20240115T103045Z");
     }
 }

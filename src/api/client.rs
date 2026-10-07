@@ -22,7 +22,10 @@ use crate::error::{Error, Result};
 #[derive(Debug)]
 pub struct O2CloudClient {
     http: Client,
+    transfer_http: Client,
     base_url: String,
+    upload_base_url: String,
+    device_id: String,
     session: Option<Session>,
 }
 
@@ -37,17 +40,26 @@ impl O2CloudClient {
         );
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
 
+        // Cliente de metadatos: timeout total corto.
         let http = Client::builder()
-            .default_headers(headers)
+            .default_headers(headers.clone())
             .connect_timeout(Duration::from_secs(10))
-            // Timeout por petición para operaciones de metadatos (no para
-            // transferencias de bytes, que se gestionarán aparte).
             .timeout(Duration::from_secs(30))
+            .build()?;
+
+        // Cliente de transferencias (subida/descarga): sin timeout total, solo
+        // timeout de conexión — un archivo grande puede tardar mucho.
+        let transfer_http = Client::builder()
+            .default_headers(headers)
+            .connect_timeout(Duration::from_secs(15))
             .build()?;
 
         Ok(Self {
             http,
+            transfer_http,
             base_url: config.base_url().to_string(),
+            upload_base_url: config.upload_base_url().to_string(),
+            device_id: config.device_id().to_string(),
             session,
         })
     }
@@ -56,6 +68,12 @@ impl O2CloudClient {
     #[must_use]
     pub fn session(&self) -> Option<&Session> {
         self.session.as_ref()
+    }
+
+    /// Identificador de dispositivo (cabeceras de subida).
+    #[must_use]
+    pub fn device_id(&self) -> &str {
+        &self.device_id
     }
 
     /// Acceso a las operaciones de media.
@@ -74,6 +92,12 @@ impl O2CloudClient {
     #[must_use]
     pub fn quota(&self) -> crate::api::quota::QuotaApi<'_> {
         crate::api::quota::QuotaApi { client: self }
+    }
+
+    /// Acceso a las operaciones de subida.
+    #[must_use]
+    pub fn upload(&self) -> crate::api::upload::UploadApi<'_> {
+        crate::api::upload::UploadApi { client: self }
     }
 
     /// Acceso a las operaciones de sesión/perfil.
@@ -161,7 +185,11 @@ impl O2CloudClient {
     }
 
     fn build_url(&self, path: &str, params: &[(&str, &str)]) -> Result<Url> {
-        let base = format!("{}/sapi{}", self.base_url, path);
+        self.build_url_with(&self.base_url, path, params)
+    }
+
+    fn build_url_with(&self, base: &str, path: &str, params: &[(&str, &str)]) -> Result<Url> {
+        let base = format!("{base}/sapi{path}");
         let mut url =
             Url::parse(&base).map_err(|e| Error::Protocol(format!("invalid URL: {e}")))?;
         {
@@ -174,6 +202,34 @@ impl O2CloudClient {
             }
         }
         Ok(url)
+    }
+
+    /// Envía un formulario multipart al host de subida.
+    ///
+    /// Usado por [`crate::api::upload::UploadApi`]; no reintenta (la subida no
+    /// es idempotente sin reconciliación previa).
+    pub(crate) async fn post_multipart<T>(
+        &self,
+        path: &str,
+        params: &[(&str, &str)],
+        form: reqwest::multipart::Form,
+        extra_headers: &[(&str, String)],
+    ) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let url = self.build_url_with(&self.upload_base_url, path, params)?;
+        tracing::debug!(path = %url.path(), "upload request");
+
+        let mut req = self.transfer_http.post(url);
+        if let Some(session) = &self.session {
+            req = req.header(COOKIE, session.cookie_header());
+        }
+        for (name, value) in extra_headers {
+            req = req.header(*name, value);
+        }
+        let resp = req.multipart(form).send().await?;
+        Self::parse(resp).await
     }
 
     /// Parsea una respuesta SAPI: distingue error HTTP, error SAPI (dentro de

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use crate::api::client::O2CloudClient;
-use crate::api::models::{Id, MediaItem, MediaListing};
+use crate::api::models::{Id, MediaItem, MediaListing, ValidationEntry};
 use crate::error::{Error, Result};
 
 /// Operaciones sobre el recurso `media`.
@@ -19,6 +19,13 @@ pub struct MediaApi<'a> {
 struct DetailResponse {
     #[serde(default)]
     files: Vec<MediaItem>,
+}
+
+/// Respuesta de `get-validation-status`: `data.ids[]`.
+#[derive(Debug, Deserialize)]
+struct ValidationResponse {
+    #[serde(default)]
+    ids: Vec<ValidationEntry>,
 }
 
 impl MediaApi<'_> {
@@ -87,6 +94,27 @@ impl MediaApi<'_> {
             out.extend(self.detail_many(&ids, &mediatype).await?);
         }
         Ok(out)
+    }
+
+    /// Consulta el estado de validación de ids recién subidos.
+    ///
+    /// `POST /sapi/media?action=get-validation-status {data:{ids:[{id}]}}`.
+    pub async fn validation_status(&self, ids: &[Id]) -> Result<Vec<ValidationEntry>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let body = serde_json::json!({
+            "data": { "ids": ids.iter().map(|id| serde_json::json!({ "id": id.as_str() })).collect::<Vec<_>>() }
+        });
+        let resp: ValidationResponse = self
+            .client
+            .post_read(
+                "/media",
+                &[("action", "get-validation-status")],
+                Some(&body),
+            )
+            .await?;
+        Ok(resp.ids)
     }
 }
 

@@ -5,9 +5,12 @@ use o2cloud::auth::{KeyringStore, SecretStore};
 use o2cloud::cli::{Cli, Command};
 use o2cloud::config::AppConfig;
 use o2cloud::error::{Error, Result};
-use o2cloud::output::{print_listing, print_media, print_quota, print_status, Output};
+use o2cloud::output::{
+    print_listing, print_media, print_quota, print_status, print_uploads, Output,
+};
 use o2cloud::{service, O2CloudClient, Session};
 use serde_json::json;
+use std::path::Path;
 
 #[tokio::main]
 async fn main() {
@@ -101,7 +104,38 @@ async fn run(cli: &Cli, output: Output) -> Result<()> {
             }
             Ok(())
         }
+
+        Command::Upload { locals, to } => {
+            let client = build_client(&config)?;
+            require_session(&client)?;
+
+            if locals.is_empty() {
+                return Err(Error::Protocol("no local files given".to_string()));
+            }
+            let folder_id = service::resolve_folder_id(&client, to).await?;
+            let options = service::UploadOptions {
+                show_progress: show_progress(cli, output),
+                ..Default::default()
+            };
+            let mut outcomes = Vec::with_capacity(locals.len());
+            for local in locals {
+                let outcome =
+                    service::upload(&client, Path::new(local), &folder_id, &options).await?;
+                outcomes.push(outcome);
+            }
+            output.success(&outcomes);
+            if !output.is_json() {
+                print_uploads(&outcomes);
+            }
+            Ok(())
+        }
     }
+}
+
+/// ¿Mostrar barra de progreso? No en modo `--json`/`--quiet` ni sin TTY.
+fn show_progress(cli: &Cli, output: Output) -> bool {
+    use std::io::IsTerminal;
+    !cli.quiet && !output.is_json() && std::io::stderr().is_terminal()
 }
 
 /// Construye un cliente cargando la sesión (env `O2CLOUD_COOKIE` o keyring).

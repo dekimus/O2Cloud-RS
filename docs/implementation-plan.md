@@ -46,16 +46,21 @@ iteración.
 
 ## Fase 6 — CLI ✅ (parcial)
 
-- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`.
+- [x] Comandos `login`, `logout`, `status`, `quota`, `ls`, `stat`, `upload`.
 - [x] Flags globales `--json`, `--verbose`, `--quiet`, `--profile`.
 - [x] `--json`: stdout solo JSON, logs a stderr, sin confirmación.
-- [ ] `tree`, `mkdir`, `upload`, `download`, `cp`, `mv`, `rm` (fases siguientes).
+- [ ] `tree`, `mkdir`, `download`, `cp`, `mv`, `rm` (fases siguientes).
 
-## Fase 7 — Upload
+## Fase 7 — Upload ✅
 
-- [ ] multipart streaming a `upload.cloud.o2online.es/sapi/upload?action=save`.
-- [ ] `data` + `file` parts, `X-deviceid`, `YYYYMMDDThhmmssZ`.
-- [ ] validation polling con backoff.
+- [x] multipart streaming a `upload.cloud.o2online.es/sapi/upload?action=save`.
+- [x] partes `data` (JSON `{"data":{name,size,creationdate,modificationdate,folder}}`)
+  y `file`, cabecera `X-deviceid`, fechas `YYYYMMDDThhmmssZ`.
+- [x] barra de progreso (stderr, solo con TTY y sin `--json`/`--quiet`).
+- [x] validation polling (`get-validation-status`) con backoff exponencial.
+- [x] archivo no se carga en memoria (streaming desde disco).
+- [x] tests: multipart (cabeceras, cuerpo, fecha), validación confirmada y
+  pendiente, respuesta sin envelope.
 
 ## Fase 8 — Download
 
@@ -71,8 +76,8 @@ iteración.
 
 ## Fase 11 — Tests
 
-- [x] Unitarios y mock HTTP para el slice actual.
-- [ ] Ampliar a upload/download/delete/copy/move cuando existan.
+- [x] Unitarios y mock HTTP para lectura y subida.
+- [ ] Ampliar a download/delete/copy/move cuando existan.
 
 ## Fase 12 — Documentación
 
@@ -85,7 +90,6 @@ iteración.
 
 ## Próximos pasos (siguiente iteración)
 
-1. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.
-2. `mkdir` + `upload` (multipart streaming + validation polling).
-3. `download` (streaming + `.part` + rename atómico).
-4. `copy`/`move`/`rm` server-side con confirmación.
+1. `download` (streaming + `.part` + rename atómico + progreso).
+2. `mkdir` + `copy`/`move`/`rm` server-side con confirmación.
+3. Browser-assisted login (`wry`/`tao` o system browser) desacoplado.

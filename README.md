@@ -10,16 +10,15 @@ en Rust. Gestiona el almacenamiento en la nube de O2 desde la terminal.
 
 ## Estado
 
-Primera iteración funcional: **vertical slice de lectura**.
-
 - `o2cloud login --import-cookie '…'` — importa una sesión del navegador.
 - `o2cloud logout` — elimina la sesión.
 - `o2cloud status` — estado de la sesión.
 - `o2cloud quota` — cuota de almacenamiento.
 - `o2cloud ls [RUTA]` — lista carpetas y archivos.
 - `o2cloud stat RUTA` — detalle de un archivo (id o ruta).
+- `o2cloud upload LOCAL... --to CARPETA` — sube archivos (streaming).
 
-No implementado todavía: login asistido por navegador, subida, descarga,
+No implementado todavía: login asistido por navegador, descarga,
 mkdir/copy/move/rm, sync, FUSE. Ver `docs/implementation-plan.md`.
 
 ## Requisitos
@@ -65,6 +64,8 @@ o2cloud ls
 o2cloud ls /fotos
 o2cloud stat 1195003130
 o2cloud stat /fotos/imagen.jpg
+o2cloud upload ./informe.pdf --to /documentos
+o2cloud upload a.txt b.txt --to /backup
 ```
 
 Opciones globales:

@@ -47,21 +47,23 @@ src/
   config.rs            AppConfig (hosts, profile, device-id) desde dirs/env
   error.rs             Error tipado + mapeo a exit codes
   output.rs            renderizado human/JSON, redacción de secretos
+  progress.rs          barra de progreso (indicatif), desacoplada
   api/
     mod.rs
     client.rs          O2CloudClient: transporte, envelope, sesión, retries
-    models.rs          modelos serde (Quota, Folder, MediaItem, …)
-    media.rs           listar + detalle
+    models.rs          modelos serde (Quota, Folder, MediaItem, UploadResult, …)
+    media.rs           listar + detalle + estado de validación
     folders.rs         listar carpetas
     quota.rs           quota
     auth.rs            whoami (probe de sesión)
+    upload.rs          subida multipart streaming
   auth/
     mod.rs
     session.rs         Session: cookie header, extracción validationKey/JSESSIONID
     store.rs           trait SecretStore + KeyringStore + EnvStore + MemoryStore
   service/
-    mod.rs
-    status.rs quota.rs ls.rs stat.rs
+    mod.rs             resolución de rutas remotas, identidad
+    status.rs quota.rs ls.rs stat.rs upload.rs
 ```
 
 ## 4. Cliente SAPI (`O2CloudClient`)
@@ -160,28 +162,50 @@ pub enum Error {
 - modo humano: tablas/lista legible; errores a stderr.
 - Los errores también se serializan como JSON en modo `--json`.
 
-## 9. Tests
+## 9. Subida (`upload`)
+
+- Endpoint: `POST {upload_base_url}/sapi/upload?action=save` (host dedicado).
+- Formulario multipart con dos partes: `data` (JSON
+  `{"data":{name,size,creationdate,modificationdate,folder}}`) y `file` (bytes).
+- Cabeceras: `X-deviceid`, `x-funambol-file-size`; cookie de sesión y
+  `?validationkey=`.
+- **Streaming**: el archivo se lee de disco con `ReaderStream` y se envía como
+  parte con longitud conocida (nunca se carga entero en memoria). El progreso
+  se actualiza al consumir cada chunk.
+- Cliente HTTP de transferencia sin timeout total (solo timeout de conexión).
+- Tras la respuesta (`{success,id,etag,status,type}`) se sondea
+  `POST /sapi/media?action=get-validation-status` con backoff exponencial hasta
+  confirmar (`status == "U"`). La consistencia es eventual: no se declara
+  "disponible" hasta confirmarla.
+
+## 10. Tests
 
 - Unitarios: parsing de envelope, extracción de `validationKey`, coerción de
-  ids, mapeo de errores.
+  ids, mapeo de errores, formato `YYYYMMDDThhmmssZ`.
 - HTTP con `wiremock`: 200+éxito, 200+error SAPI, 401/403/404/429/500,
   adjuntado de cookie+validationkey, quota, listado, detalle.
+- Subida: multipart (cabeceras, cuerpo, fecha), respuesta con/sin envelope,
+  validación confirmada y pendiente.
 - Live manual (nunca en CI): `O2CLOUD_LIVE_TESTS=1 O2CLOUD_COOKIE=...`.
 
-## 10. Dependencias (punto de partida)
+## 11. Dependencias (punto de partida)
 
 | Crate | Uso |
 | ----- | --- |
 | `tokio` | runtime async |
-| `reqwest` | HTTP (rustls, json, cookies, stream) |
+| `reqwest` | HTTP (rustls, json, multipart, stream) |
 | `serde`/`serde_json` | (de)serialización |
 | `clap` | CLI |
 | `thiserror` | errores tipados |
 | `keyring` | secretos |
 | `url` | manipulación de URLs |
 | `tracing`/`tracing-subscriber` | logging redacted a stderr |
+| `time` | fechas `YYYYMMDDThhmmssZ` |
+| `indicatif` | barra de progreso |
+| `tokio-util` | `ReaderStream` (streaming desde disco) |
+| `futures-util` | adaptación del stream (progreso) |
 | `wiremock` (dev) | mock HTTP |
+| `tempfile` (dev) | ficheros temporales en tests |
 
-Se añadirán `indicatif` (progreso), `time`/`chrono` (fechas), multipart,
-`directories` (cuando se persista un archivo de config), etc. cuando lleguen
-las fases de upload/download/config.
+Se añadirán `directories` (cuando se persista un archivo de config) y otras
+cuando lleguen las fases de download/config.

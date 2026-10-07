@@ -5,7 +5,7 @@ use serde_json::json;
 
 use crate::api::models::{MediaItem, Quota};
 use crate::error::Error;
-use crate::service::{Listing, StatusInfo};
+use crate::service::{Listing, StatusInfo, UploadOutcome};
 use crate::util::format_bytes;
 
 /// Renderizador de salida según el modo (`--json` o humano).
@@ -118,5 +118,26 @@ pub fn print_media(item: &MediaItem) {
     }
     if let Some(status) = &item.status {
         println!("estado:           {status}");
+    }
+}
+
+/// Imprime el resultado de una o varias subidas en modo humano.
+pub fn print_uploads(outcomes: &[UploadOutcome]) {
+    for outcome in outcomes {
+        let validation = if outcome.validated {
+            "disponible".to_string()
+        } else {
+            match &outcome.validation_status {
+                Some(status) => format!("validación pendiente ({status})"),
+                None => "validación pendiente".to_string(),
+            }
+        };
+        println!(
+            "✓ {} ({}) → id {} [{}]",
+            outcome.name,
+            format_bytes(i64::try_from(outcome.size).unwrap_or(i64::MAX)),
+            outcome.id,
+            validation
+        );
     }
 }

@@ -31,6 +31,7 @@ pub mod cli;
 pub mod config;
 pub mod error;
 pub mod output;
+pub mod progress;
 pub mod service;
 pub mod util;
 
@@ -39,3 +40,4 @@ pub use api::models::{Folder, Id, MediaItem, MediaListing, Profile, Quota};
 pub use auth::session::Session;
 pub use config::AppConfig;
 pub use error::{Error, Result};
+pub use progress::ProgressReporter;

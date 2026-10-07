@@ -86,6 +86,21 @@ impl AppConfig {
         config.base_url = base_url.into();
         config
     }
+
+    /// Construye configuración apuntando a una URL base y a un host de subida.
+    ///
+    /// Pensado para tests y herramientas; no debe usarse en producción.
+    #[must_use]
+    #[doc(hidden)]
+    pub fn with_base_urls(
+        base_url: impl Into<String>,
+        upload_base_url: impl Into<String>,
+        profile: Option<String>,
+    ) -> Self {
+        let mut config = Self::with_base_url(base_url, profile);
+        config.upload_base_url = upload_base_url.into();
+        config
+    }
 }
 
 fn env(name: &str, default: &str) -> String {

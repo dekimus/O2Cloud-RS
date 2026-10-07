@@ -60,4 +60,14 @@ pub enum Command {
         /// Id numérico o ruta del archivo.
         remote: String,
     },
+
+    /// Sube uno o varios archivos locales a una carpeta remota.
+    Upload {
+        /// Rutas locales a subir.
+        locals: Vec<String>,
+
+        /// Carpeta remota destino.
+        #[arg(long, default_value = "/")]
+        to: String,
+    },
 }

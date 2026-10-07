@@ -168,22 +168,24 @@ No concatenar dos veces `/sapi`.
 
 `POST https://upload.cloud.o2online.es/sapi/upload?action=save`
 
-Multipart:
+Multipart con dos partes (CONFIRMED live 2026-07-22):
 
--   `data`
--   `file`
+-   `data`: JSON `{"data":{name,size,modificationdate,creationdate[,folder]}}`
+-   `file`: bytes (content-type `application/octet-stream`)
 
 Header:
 
-`X-deviceid: <deviceid>`
+`X-deviceid: <deviceid>` y `x-funambol-file-size: <bytes>`.
+La cookie de sesión (`JSESSIONID`) aplica también al host de subida y
+`validationkey` va como query param.
 
 Fechas:
 
-`YYYYMMDDThhmmssZ`
+`YYYYMMDDThhmmssZ` (UTC compacto).
 
 Epoch milliseconds provocan `COM-1008`.
 
-Respuesta incluye:
+Respuesta incluye (puede venir con o sin envoltorio `data`):
 
 -   success
 -   id
@@ -191,8 +193,12 @@ Respuesta incluye:
 -   status
 -   type
 
-Hay consistencia eventual: esperar/pollear antes de asumir que el objeto
-aparece en listados.
+Hay consistencia eventual: tras subir, pollear
+
+`POST /sapi/media?action=get-validation-status`
+
+con body `{"data":{"ids":[{"id":<id>}]}}` → `data.ids[]{id,status}`. El estado
+`U` indica subido/válido. No declarar "disponible" hasta confirmarlo.
 
 ### Revisions
 
