@@ -46,14 +46,15 @@ impl UploadApi<'_> {
         let timestamp = compact_utc_now();
 
         // El campo `data` contiene JSON con un envoltorio `data` y la carpeta
-        // destino en la clave `folder` (observado en el flujo web).
+        // destino en la clave `folderid` (el campo `folder` del cliente web se
+        // ignora y el archivo cae en la raíz; confirmado live 2026-10-07).
         let metadata_json = serde_json::json!({
             "data": {
                 "name": name,
                 "size": size,
                 "modificationdate": timestamp,
                 "creationdate": timestamp,
-                "folder": folder_id.as_str(),
+                "folderid": folder_id.as_str(),
             }
         });
 

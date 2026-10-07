@@ -198,7 +198,9 @@ implementación sigue ese comportamiento.
 
 Multipart con dos partes (CONFIRMED live 2026-07-22):
 
--   `data`: JSON `{"data":{name,size,modificationdate,creationdate[,folder]}}`
+-   `data`: JSON `{"data":{name,size,modificationdate,creationdate[,folderid]}}`
+    (**la clave es `folderid`, no `folder`**: con `folder` el archivo cae en la
+    raíz; confirmado live 2026-10-07)
 -   `file`: bytes (content-type `application/octet-stream`)
 
 Header:
@@ -372,7 +374,8 @@ respecto a lo deducido de las implementaciones de referencia:
     -   permanente carpeta: `POST /media/folder?action=delete` body
         `{"data":{"folders":[id]}}`.
     El `media/file?action=softdelete` **con body es un no-op**.
--   **subida**: `success` es una **cadena** ("Media uploaded successfully").
+-   **subida**: `success` es una **cadena**; la carpeta destino va en
+    **`folderid`** (con `folder` el archivo cae en la **raíz**).
 -   **papelera**: listar con `GET /sapi/media/trash?action=get` →
     `data.entries[]{date,id,name,type}` (`type`: `media`|`folder`). El vaciado
     se hace borrando **permanentemente** cada entrada (no hay endpoint masivo

@@ -64,7 +64,7 @@ iteración.
 ## Fase 7 — Upload ✅
 
 - [x] multipart streaming a `upload.cloud.o2online.es/sapi/upload?action=save`.
-- [x] partes `data` (JSON `{"data":{name,size,creationdate,modificationdate,folder}}`)
+- [x] partes `data` (JSON `{"data":{name,size,creationdate,modificationdate,folderid}}`)
   y `file`, cabecera `X-deviceid`, fechas `YYYYMMDDThhmmssZ`.
 - [x] barra de progreso (stderr, solo con TTY y sin `--json`/`--quiet`).
 - [x] validation polling (`get-validation-status`) con backoff exponencial.

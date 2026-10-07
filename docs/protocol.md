@@ -304,7 +304,9 @@ respecto a lo deducido de las implementaciones de referencia:
   `{"data":{"files":[id]}}`; permanente de carpeta =
   `POST /media/folder?action=delete` body `{"data":{"folders":[id]}}`.
   El `media/file?action=softdelete` **con body es un no-op**.
-- **Subida**: `success` llega como **cadena** ("Media uploaded successfully").
+- **Subida**: `success` llega como **cadena**; la carpeta destino se indica en
+  **`folderid`** (la clave `folder` que usa el cliente web se **ignora** y el
+  archivo cae en la raíz).
 - **`cp`/copy**: **UNCONFIRMED** (`COM-1011` con todos los cuerpos probados).
 - **Papelera**: listar con `GET /sapi/media/trash?action=get` →
   `data.entries[]{date,id,name,type}` (`type`: `media`|`folder`). El vaciado se

@@ -88,7 +88,7 @@ async fn upload_sends_multipart_metadata_and_file() {
 
     let body = String::from_utf8_lossy(&upload.body);
     assert!(body.contains("\"name\":\"a.txt\""), "{body}");
-    assert!(body.contains("\"folder\":\"1\""), "{body}");
+    assert!(body.contains("\"folderid\":\"1\""), "{body}");
     assert!(body.contains("\"creationdate\":\""), "{body}");
     assert!(body.contains("hello world"), "{body}");
 }
